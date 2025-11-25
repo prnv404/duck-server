@@ -1,0 +1,183 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type AuthResponse {
+  accessToken: String!
+  refreshToken: String!
+  user: UserModel!
+}
+
+"""Input data for creating a new user"""
+input CreateUserInput {
+  """User full name"""
+  fullName: String
+
+  """One-time password for verification"""
+  otp: String!
+
+  """User phone number"""
+  phone: String!
+
+  """User target exam"""
+  targetExam: String
+
+  """User username"""
+  username: String!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type Mutation {
+  """Register a new user account"""
+  createUser(input: CreateUserInput!): UserModel!
+
+  """Delete the user's account"""
+  deleteUser(
+    """The ID of the user to delete"""
+    id: ID!
+  ): UserModel!
+  logout: Boolean!
+  refreshTokens: RefreshTokenResponse!
+  requestOtp(input: RequestOtpInput!): Boolean!
+
+  """Update an existing user profile"""
+  updateUser(input: UpdateUserInput!): UserModel!
+  verifyOtp(input: VerifyOtpInput!): AuthResponse!
+}
+
+type Query {
+  """Get a user by ID"""
+  getUser(
+    """The string ID of the user"""
+    id: ID!
+  ): UserModel!
+
+  """Get a list of all users"""
+  getUsers(limit: Int! = 10, offset: Int! = 0): [UserModel!]!
+
+  """Get the profile of the authenticated user"""
+  me: UserModel!
+}
+
+type RefreshTokenResponse {
+  accessToken: String!
+  refreshToken: String!
+}
+
+input RequestOtpInput {
+  phone: String!
+}
+
+"""Input data for updating an existing user"""
+input UpdateUserInput {
+  """User avatar url"""
+  avatarUrl: String
+
+  """User fcm token"""
+  fcmToken: String
+
+  """User full name"""
+  fullName: String
+
+  """The ID of the user to update"""
+  id: String!
+
+  """User notification enabled"""
+  notificationEnabled: Boolean
+
+  """User target exam"""
+  targetExam: String
+
+  """User username"""
+  username: String
+}
+
+"""Represents a user in the system. Sensitive fields are omitted."""
+type UserModel {
+  """The URL for the user's avatar image."""
+  avatarUrl: String
+
+  """The date and time the user account was created."""
+  createdAt: DateTime!
+
+  """The user's full name."""
+  fullName: String
+
+  """The unique numeric identifier of the user."""
+  id: ID!
+
+  """The date and time the user was last active."""
+  lastActiveAt: DateTime
+
+  """Indicates if the user has enabled notifications."""
+  notificationEnabled: Boolean!
+
+  """The user's phone number."""
+  phone: String!
+
+  """The target examination or course the user is preparing for."""
+  targetExam: String
+
+  """The user's status."""
+  userStatus: UserStatusModel
+
+  """The user's unique username."""
+  username: String!
+}
+
+"""User status model"""
+type UserStatusModel {
+  """Timestamp when the record was created."""
+  createdAt: DateTime!
+
+  """Current streak (consecutive days of activity)."""
+  currentStreak: Int!
+
+  """The unique UUID of the user stats entry."""
+  id: ID!
+
+  """Last activity date of the user."""
+  lastActivityDate: DateTime
+
+  """Current level of the user."""
+  level: Int!
+
+  """Longest streak achieved by the user."""
+  longestStreak: Int!
+
+  """Overall accuracy as a percentage (e.g., "89.50")."""
+  overallAccuracy: String!
+
+  """Total number of correct answers."""
+  totalCorrectAnswers: Int!
+
+  """Total practice time in minutes."""
+  totalPracticeTimeMinutes: Int!
+
+  """Total number of questions attempted."""
+  totalQuestionsAttempted: Int!
+
+  """Total number of quizzes completed."""
+  totalQuizzesCompleted: Int!
+
+  """Total XP gained by the user."""
+  totalXp: Int!
+
+  """Timestamp when the record was last updated."""
+  updatedAt: DateTime!
+
+  """The unique UUID of the user."""
+  userId: ID!
+
+  """XP required to reach the next level."""
+  xpToNextLevel: Int!
+}
+
+input VerifyOtpInput {
+  otp: String!
+  phone: String!
+}
