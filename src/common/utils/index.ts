@@ -1,1 +1,1 @@
-export * from './service.helper'
+export * from './service.helper';

@@ -8,21 +8,11 @@ type AuthResponse {
   user: UserModel!
 }
 
-"""Input data for creating a new user"""
 input CreateUserInput {
-  """User full name"""
   fullName: String
-
-  """One-time password for verification"""
   otp: String!
-
-  """User phone number"""
   phone: String!
-
-  """User target exam"""
   targetExam: String
-
-  """User username"""
   username: String!
 }
 
@@ -61,6 +51,10 @@ type Query {
 
   """Get the profile of the authenticated user"""
   me: UserModel!
+  subjectById(id: String!): SubjectModel!
+  subjects: [SubjectModel!]!
+  topicById(id: String!): TopicModel!
+  topicsBySubjectId(subjectId: String!): [TopicModel!]!
 }
 
 type RefreshTokenResponse {
@@ -72,108 +66,72 @@ input RequestOtpInput {
   phone: String!
 }
 
-"""Input data for updating an existing user"""
+type SubjectModel {
+  colorCode: String
+  createdAt: DateTime!
+  displayOrder: Int
+  iconUrl: String
+  id: ID!
+  isActiveInRandom: Boolean
+  name: String!
+  topics: [TopicModel!]
+  weightage: Int
+}
+
+type TopicModel {
+  createdAt: DateTime!
+  description: String
+  displayOrder: Int
+  id: ID!
+  isActiveInRandom: Boolean
+  name: String!
+  subject: SubjectModel!
+  subjectId: ID!
+  weightage: Int
+}
+
 input UpdateUserInput {
-  """User avatar url"""
   avatarUrl: String
-
-  """User fcm token"""
   fcmToken: String
-
-  """User full name"""
   fullName: String
-
-  """The ID of the user to update"""
   id: String!
-
-  """User notification enabled"""
   notificationEnabled: Boolean
-
-  """User target exam"""
   targetExam: String
-
-  """User username"""
   username: String
 }
 
-"""Represents a user in the system. Sensitive fields are omitted."""
 type UserModel {
-  """The URL for the user's avatar image."""
   avatarUrl: String
-
-  """The date and time the user account was created."""
   createdAt: DateTime!
-
-  """The user's full name."""
+  fcmToken: String
   fullName: String
-
-  """The unique numeric identifier of the user."""
   id: ID!
-
-  """The date and time the user was last active."""
   lastActiveAt: DateTime
-
-  """Indicates if the user has enabled notifications."""
   notificationEnabled: Boolean!
-
-  """The user's phone number."""
+  otp: String
   phone: String!
-
-  """The target examination or course the user is preparing for."""
+  refreshToken: String
   targetExam: String
-
-  """The user's status."""
-  userStatus: UserStatusModel
-
-  """The user's unique username."""
+  userStats: UserStatsModel
   username: String!
 }
 
-"""User status model"""
-type UserStatusModel {
-  """Timestamp when the record was created."""
+type UserStatsModel {
   createdAt: DateTime!
-
-  """Current streak (consecutive days of activity)."""
   currentStreak: Int!
-
-  """The unique UUID of the user stats entry."""
   id: ID!
-
-  """Last activity date of the user."""
   lastActivityDate: DateTime
-
-  """Current level of the user."""
   level: Int!
-
-  """Longest streak achieved by the user."""
   longestStreak: Int!
-
-  """Overall accuracy as a percentage (e.g., "89.50")."""
   overallAccuracy: String!
-
-  """Total number of correct answers."""
   totalCorrectAnswers: Int!
-
-  """Total practice time in minutes."""
   totalPracticeTimeMinutes: Int!
-
-  """Total number of questions attempted."""
   totalQuestionsAttempted: Int!
-
-  """Total number of quizzes completed."""
   totalQuizzesCompleted: Int!
-
-  """Total XP gained by the user."""
   totalXp: Int!
-
-  """Timestamp when the record was last updated."""
   updatedAt: DateTime!
-
-  """The unique UUID of the user."""
+  user: UserModel!
   userId: ID!
-
-  """XP required to reach the next level."""
   xpToNextLevel: Int!
 }
 

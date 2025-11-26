@@ -9,7 +9,7 @@ import { GqlRefreshTokenGuard } from '@/common/guards';
 
 @Resolver()
 export class AuthResolver {
-    constructor(private readonly authService: AuthService) { }
+    constructor(private readonly authService: AuthService) {}
 
     @Mutation(() => Boolean)
     async requestOtp(@Args('input') input: RequestOtpInput): Promise<boolean> {
@@ -32,6 +32,6 @@ export class AuthResolver {
     async refreshTokens(
         @CurrentUser() user: any, // Payload from RefreshTokenStrategy
     ): Promise<RefreshTokenResponse> {
-        return this.authService.refreshTokens(user.sub, user.refreshToken);
+        return this.authService.refreshTokens(user.sub, user.refreshToken!);
     }
 }

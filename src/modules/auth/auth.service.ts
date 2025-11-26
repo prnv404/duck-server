@@ -14,7 +14,7 @@ export class AuthService {
         private readonly jwtService: JwtService,
         private readonly configService: EnvService,
         private readonly redisService: RedisService,
-    ) { }
+    ) {}
 
     async requestOtp(input: RequestOtpInput): Promise<boolean> {
         const { phone } = input;
@@ -37,7 +37,6 @@ export class AuthService {
         const storedOtp = await redis.get<string | number>(RedisKeys.otp(phone));
 
         if (!storedOtp || String(storedOtp) !== otp.trim()) {
-            await redis.del(RedisKeys.otp(phone));
             throw new UnauthorizedError('Invalid or expired OTP');
         }
 
@@ -45,16 +44,17 @@ export class AuthService {
         await redis.del(RedisKeys.otp(phone));
 
         // Find or Create User
-        let user = await this.userService.findByUsernameOrPhone(phone);
+        let user = await this.userService.findByPhone(phone);
+
 
         if (!user) {
             // Create new user
-            // We need a username. Let's generate one or ask for it? 
+            // We need a username. Let's generate one or ask for it?
             // For now, let's generate a random one based on phone
             const username = `user_${phone.slice(-4)}_${Math.floor(Math.random() * 1000)}`;
-            user = await this.userService.createUser({
+            user = await this.userService.createNewUser({
                 phone,
-                username,
+                username
             });
         }
 

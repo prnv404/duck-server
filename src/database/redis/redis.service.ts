@@ -3,7 +3,7 @@ import { Redis } from '@upstash/redis';
 
 @Injectable()
 export class RedisService {
-    constructor(@Inject('REDIS_CLIENT') private readonly redis: Redis) { }
+    constructor(@Inject('REDIS_CLIENT') private readonly redis: Redis) {}
 
     getClient(): Redis {
         return this.redis;

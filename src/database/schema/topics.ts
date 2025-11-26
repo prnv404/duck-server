@@ -65,6 +65,9 @@ export const topics = pgTable(
 export type Subject = typeof subjects.$inferSelect;
 export type NewSubject = typeof subjects.$inferInsert;
 
+export type Topic = typeof topics.$inferSelect;
+export type NewTopic = typeof topics.$inferInsert;
+
 export const subjectsRelations = relations(subjects, ({ one, many }) => ({
     topics: many(topics),
 }));

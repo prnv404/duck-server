@@ -8,6 +8,9 @@ export * from './streak.calender';
 export * from './user.badges';
 export * from './leaderboard';
 export * from './badges';
-export * from './levels'
-export * from './session.answers'
-export * from './answer.options'
+export * from './levels';
+export * from './session.answers';
+export * from './answer.options';
+export * from './notification';
+export * from './question.history';
+export * from './question.preference';

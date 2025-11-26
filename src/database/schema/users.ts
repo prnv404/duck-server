@@ -8,6 +8,7 @@ import { userTopicProgress } from './user.progress';
 import { leaderboardEntries } from './leaderboard';
 import { userQuestionHistory } from './question.history';
 import { userQuizPreferences } from './question.preference';
+import { notificationQueue } from './notification';
 
 export const users = pgTable(
     'users',
@@ -22,6 +23,7 @@ export const users = pgTable(
         targetExam: varchar('target_exam', { length: 50 }),
         fcmToken: text('fcm_token'),
         notificationEnabled: boolean('notification_enabled').default(true).notNull(),
+        refreshToken: text('refresh_token'),
         createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
         lastActiveAt: timestamp('last_active_at', { mode: 'date' }),
     },
@@ -40,4 +42,5 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     leaderboardEntries: many(leaderboardEntries),
     userQuestionHistory: many(userQuestionHistory),
     userQuizPreferences: one(userQuizPreferences),
+    notificationQueue: many(notificationQueue),
 }));

@@ -1,68 +1,95 @@
-import { User } from "@/database/schema";
-import {
-    ObjectType,
-    Field,
-    ID,
-    GraphQLISODateTime
-} from "@nestjs/graphql";
-import { UserStatusModel } from '../user_stats'
+import { ObjectType, Field, ID, Int, GraphQLISODateTime } from '@nestjs/graphql';
+import { User, UserStats } from '@/database/schema';
 
-
-@ObjectType({
-    description: 'Represents a user in the system. Sensitive fields are omitted.',
-})
-export class UserModel implements Omit<User, 'otp' | 'fcmToken' | 'phone'> {
-
-    @Field(() => ID, { description: 'The unique numeric identifier of the user.' })
+@ObjectType()
+export class UserModel implements User {
+    @Field(() => ID)
     id: string;
 
-    @Field(() => String, { description: 'The user\'s unique username.' })
+    @Field(() => String)
     username: string;
 
-    @Field(() => String, { description: 'The user\'s phone number.' })
+    @Field(() => String)
     phone: string;
 
-    @Field(() => String, {
-        description: 'The user\'s full name.',
-        nullable: true,
-    })
+    @Field(() => String, { nullable: true })
     fullName: string | null;
 
-    @Field(() => String, {
-        description: 'The URL for the user\'s avatar image.',
-        nullable: true,
-    })
+    @Field(() => String, { nullable: true })
     avatarUrl: string | null;
 
-    @Field(() => String, {
-        description: 'The target examination or course the user is preparing for.',
-        nullable: true,
-    })
+    @Field(() => String, { nullable: true })
     targetExam: string | null;
 
-    @Field(() => Boolean, {
-        description: 'Indicates if the user has enabled notifications.',
-    })
+    @Field(() => Boolean, { defaultValue: true })
     notificationEnabled: boolean;
 
-    @Field(() => GraphQLISODateTime, {
-        description: 'The date and time the user account was created.',
-    })
+    @Field(() => String, { nullable: true })
+    otp?: string | null;
+
+    @Field(() => String, { nullable: true })
+    fcmToken: string | null;
+
+    @Field(() => String, { nullable: true })
+    refreshToken: string | null;
+
+    @Field(() => GraphQLISODateTime)
     createdAt: Date;
 
-    @Field(() => GraphQLISODateTime, {
-        description: 'The date and time the user was last active.',
-        nullable: true
-    })
-
-    @Field(() => GraphQLISODateTime, {
-        description: 'The date and time the user was last active.',
-        nullable: true
-    })
+    @Field(() => GraphQLISODateTime, { nullable: true })
     lastActiveAt: Date | null;
 
-    @Field(() => UserStatusModel, { description: 'The user\'s status.', nullable: true })
-    userStatus?: UserStatusModel | null;
+    @Field(() => UserStatsModel, { nullable: true })
+    userStats?: UserStatsModel | null;
+}
 
+@ObjectType()
+export class UserStatsModel implements UserStats {
+    @Field(() => ID)
+    id: string;
 
+    @Field(() => ID)
+    userId: string;
+
+    @Field(() => Int)
+    totalXp: number;
+
+    @Field(() => Int)
+    level: number;
+
+    @Field(() => Int)
+    xpToNextLevel: number;
+
+    @Field(() => Int)
+    currentStreak: number;
+
+    @Field(() => Int)
+    longestStreak: number;
+
+    @Field(() => GraphQLISODateTime, { nullable: true })
+    lastActivityDate: Date | null;
+
+    @Field(() => Int)
+    totalQuizzesCompleted: number;
+
+    @Field(() => Int)
+    totalQuestionsAttempted: number;
+
+    @Field(() => Int)
+    totalCorrectAnswers: number;
+
+    @Field(() => String)
+    overallAccuracy: string;
+
+    @Field(() => Int)
+    totalPracticeTimeMinutes: number;
+
+    @Field(() => GraphQLISODateTime)
+    createdAt: Date;
+
+    @Field(() => GraphQLISODateTime)
+    updatedAt: Date;
+
+    @Field(() => UserModel)
+    user?: UserModel;
 }

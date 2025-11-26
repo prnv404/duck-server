@@ -23,4 +23,4 @@ import { EnvService } from '@/config/config.service';
     providers: [AuthService, AuthResolver, JwtStrategy, RefreshTokenStrategy],
     exports: [AuthService],
 })
-export class AuthModule { }
+export class AuthModule {}

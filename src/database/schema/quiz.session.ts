@@ -80,3 +80,11 @@ export const quizSessionsRelations = relations(quizSessions, ({ one, many }) => 
     }),
     sessionAnswers: many(sessionAnswers),
 }));
+
+export enum SessionStatus {
+    DRAFT = 'draft', // Session created, questions generated
+    IN_PROGRESS = 'in_progress', // User started answering
+    PAUSED = 'paused', // User left mid-quiz (optional)
+    COMPLETED = 'completed', // All questions answered
+    ABANDONED = 'abandoned', // User didn't complete
+}

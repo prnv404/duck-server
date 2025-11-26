@@ -40,7 +40,7 @@ export type DrizzleDB = NodePgDatabase<typeof schema>;
                     schema,
                     cache: upstashCache({
                         url: configService.get('UPSTASH_REDIS_REST_URL')!,
-                         token: configService.get('UPSTASH_REDIS_REST_TOKEN')!,
+                        token: configService.get('UPSTASH_REDIS_REST_TOKEN')!,
                     }),
                 });
             },
@@ -58,5 +58,4 @@ export type DrizzleDB = NodePgDatabase<typeof schema>;
     ],
     exports: [DRIZZLE, REDIS, RedisService],
 })
-
-export class DatabaseModule { }
+export class DatabaseModule {}

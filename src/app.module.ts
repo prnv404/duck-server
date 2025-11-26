@@ -14,6 +14,10 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { DataLoaderInterceptor } from './common/dataloader/dataloader.interceptor';
 import { UserModule } from '@/modules/user/user.module';
 import { AuthModule } from '@/modules/auth/auth.module';
+import { TopicModule } from './modules/topic/topic.module';
+import { QuestionModule } from './modules/question/question.module';
+import { QuizModule } from './modules/quiz/quiz.module';
+import { GamificationModule } from './modules/gamification/gamification.module';
 
 @Module({
     imports: [
@@ -22,14 +26,18 @@ import { AuthModule } from '@/modules/auth/auth.module';
         TerminusModule,
         // RabbitMQModule,
         GraphqlConfigModule,
-        // ThrottlerModule.forRoot([
-        //     {
-        //         ttl: 60000,
-        //         limit: 10,
-        //     },
-        // ]),
+        ThrottlerModule.forRoot([
+            {
+                ttl: 60000,
+                limit: 10,
+            },
+        ]),
         UserModule,
         AuthModule,
+        TopicModule,
+        QuestionModule,
+        QuizModule,
+        GamificationModule,
     ],
     controllers: [],
     providers: [
@@ -54,4 +62,4 @@ import { AuthModule } from '@/modules/auth/auth.module';
         // },
     ],
 })
-export class AppModule { }
+export class AppModule {}

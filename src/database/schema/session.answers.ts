@@ -1,8 +1,8 @@
 import { pgTable, uuid, boolean, integer, timestamp, index } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { quizSessions } from './quiz.session'; // Import quizSessions schema
-import { questions } from './questions'; // Import questions schema
-import { answerOptions } from './answer.options'; // Import answerOptions schema
+import { quizSessions } from './quiz.session';
+import { questions } from './questions';
+import { answerOptions } from './answer.options';
 import { relations } from 'drizzle-orm';
 
 export const sessionAnswers = pgTable(
@@ -12,12 +12,9 @@ export const sessionAnswers = pgTable(
             .primaryKey()
             .default(sql`gen_random_uuid()`),
 
-        // Foreign Key to quiz_sessions table (CASCADE delete)
         sessionId: uuid('session_id')
             .notNull()
             .references(() => quizSessions.id, { onDelete: 'cascade' }),
-
-        // Foreign Key to questions table (SET NULL delete is assumed for safety if not specified)
         questionId: uuid('question_id')
             .notNull() // Assuming a session answer must always relate to a question
             .references(() => questions.id, { onDelete: 'set null' }),
@@ -31,10 +28,7 @@ export const sessionAnswers = pgTable(
 
         answeredAt: timestamp('answered_at', { mode: 'date' }).defaultNow().notNull(),
     },
-    (table) => [
-        // Index: Optimized for fetching all answers belonging to a single session.
-        index('idx_session_answers').on(table.sessionId),
-    ],
+    (table) => [index('idx_session_answers').on(table.sessionId)],
 );
 
 export const sessionAnswersRelations = relations(sessionAnswers, ({ one }) => ({
@@ -54,3 +48,6 @@ export const sessionAnswersRelations = relations(sessionAnswers, ({ one }) => ({
         references: [answerOptions.id],
     }),
 }));
+
+export type SessionAnswer = typeof sessionAnswers.$inferSelect;
+export type NewSessionAnswer = typeof sessionAnswers.$inferInsert;

@@ -1,85 +1,165 @@
-import { InputType, Field, Int } from "@nestjs/graphql";
-import { IsNotEmpty, IsString, MinLength, IsMobilePhone, MaxLength, IsOptional, IsBoolean, IsNumber, IsUrl } from "class-validator";
+import { InputType, Field, Int } from '@nestjs/graphql';
+import { Transform } from 'class-transformer';
+import {
+    IsNotEmpty,
+    IsString,
+    IsMobilePhone,
+    IsOptional,
+    IsBoolean,
+    IsInt,
+    IsUrl,
+    IsUUID,
+    Matches,
+    IsNumberString,
+    Min,
+    Length,
+} from 'class-validator';
 
-@InputType({ description: 'Input data for creating a new user' })
+@InputType()
 export class CreateUserInput {
-
-    // Unique username, required for sign-up
-    @Field(() => String, { description: 'User username' })
+    @Field(() => String)
     @IsNotEmpty()
     @IsString()
-    @MinLength(3)
+    @Transform(({ value }) => value?.trim().toLowerCase())
+    @Length(3, 30)
+    @Matches(/^[a-z0-9_]+$/, { message: 'Username can only contain letters, numbers, and underscores' })
     username: string;
 
-    // Phone is required and validated
-    @Field(() => String, { description: 'User phone number' })
+    @Field(() => String)
     @IsNotEmpty()
-    // Use a specific locale if needed, e.g., 'en-IN'
-    @IsMobilePhone() 
-    phone: string; 
+    @Transform(({ value }) => value?.replace(/\s+/g, ''))
+    @IsMobilePhone(undefined, {}, { message: 'Invalid phone number format' })
+    phone: string;
 
-    // OTP is required during the creation/verification process
-    @Field(() => String, { description: 'One-time password for verification' })
-    @IsNotEmpty()
-    @IsString()
-    @MaxLength(6)
-    otp: string; 
+    @Field(() => String)
+    @IsOptional()
+    @IsNumberString({}, { message: 'OTP must contain only digits' })
+    @Length(4, 6, { message: 'OTP must be between 4 and 6 digits' })
+    otp?: string;
 
-    // Full name is optional during initial creation
-    @Field(() => String, { description: 'User full name', nullable: true })
+    @Field(() => String, { nullable: true })
     @IsOptional()
     @IsString()
+    @Transform(({ value }) => value?.trim())
+    @Length(2, 100)
     fullName?: string;
-    
-    // Target Exam is optional
-    @Field(() => String, { description: 'User target exam', nullable: true })
+
+    @Field(() => String, { nullable: true })
     @IsOptional()
     @IsString()
+    @Transform(({ value }) => value?.trim())
     targetExam?: string;
 }
 
-@InputType({ description: 'Input data for updating an existing user' })
+@InputType()
 export class UpdateUserInput {
-
-    // ID is used to identify which record to update.
-    // Use Int if your primary key is a number, or ID/String otherwise.
-    @Field(() => String, { description: 'The ID of the user to update' })
-    @IsString()
+    @Field(() => String)
     @IsNotEmpty()
-    id: string; 
+    @IsUUID('4', { message: 'Invalid User ID format' })
+    id: string;
 
-    // All fields below are optional for an update
-    
-    @Field(() => String, { description: 'User username', nullable: true })
+    @Field(() => String, { nullable: true })
     @IsOptional()
     @IsString()
-    @MinLength(3)
+    @Transform(({ value }) => value?.trim().toLowerCase())
+    @Length(3, 30)
+    @Matches(/^[a-z0-9_]+$/, { message: 'Username can only contain letters, numbers, and underscores' })
     username?: string;
-    
-    @Field(() => String, { description: 'User full name', nullable: true })
+
+    @Field(() => String, { nullable: true })
     @IsOptional()
     @IsString()
+    @Transform(({ value }) => value?.trim())
+    @Length(2, 100)
     fullName?: string | null;
 
-    @Field(() => String, { description: 'User avatar url', nullable: true })
+    @Field(() => String, { nullable: true })
     @IsOptional()
-    @IsUrl() // Use IsUrl for URL validation
+    @IsUrl({}, { message: 'Avatar must be a valid URL' })
     avatarUrl?: string | null;
 
-    @Field(() => String, { description: 'User target exam', nullable: true })
+    @Field(() => String, { nullable: true })
     @IsOptional()
     @IsString()
+    @Transform(({ value }) => value?.trim())
     targetExam?: string | null;
-    
-    // Note: FCM Token and notification settings are often updated separately, 
-    // but they can be included here if needed.
-    @Field(() => String, { description: 'User fcm token', nullable: true })
+
+    @Field(() => String, { nullable: true })
     @IsOptional()
     @IsString()
+    @IsNotEmpty({ message: 'FCM token cannot be empty' })
     fcmToken?: string | null;
-    
-    @Field(() => Boolean, { description: 'User notification enabled', nullable: true })
+
+    @Field(() => Boolean, { nullable: true })
     @IsOptional()
-    @IsBoolean()
+    @IsBoolean({ message: 'Notification enabled must be a boolean value' })
     notificationEnabled?: boolean;
+}
+
+@InputType()
+export class UpdateUserStatsInput {
+    @Field(() => String)
+    @IsNotEmpty()
+    @IsUUID('4', { message: 'Invalid User ID format' })
+    id: string;
+
+    @Field(() => Int, { nullable: true })
+    @IsOptional()
+    @IsInt()
+    @Min(0, { message: 'XP cannot be negative' })
+    totalXp?: number;
+
+    @Field(() => Int, { nullable: true })
+    @IsOptional()
+    @IsInt()
+    @Min(1, { message: 'Level must be at least 1' })
+    level?: number;
+
+    @Field(() => Int, { nullable: true })
+    @IsOptional()
+    @IsInt()
+    @Min(0, { message: 'XP required cannot be negative' })
+    xpToNextLevel?: number;
+
+    @Field(() => Int, { nullable: true })
+    @IsOptional()
+    @IsInt()
+    @Min(0, { message: 'Current streak cannot be negative' })
+    currentStreak?: number;
+
+    @Field(() => Int, { nullable: true })
+    @IsOptional()
+    @IsInt()
+    @Min(0, { message: 'Longest streak cannot be negative' })
+    longestStreak?: number;
+
+    @Field(() => Int, { nullable: true })
+    @IsOptional()
+    @IsInt()
+    @Min(0, { message: 'Total quizzes cannot be negative' })
+    totalQuizzesCompleted?: number;
+
+    @Field(() => Int, { nullable: true })
+    @IsOptional()
+    @IsInt()
+    @Min(0, { message: 'Total questions cannot be negative' })
+    totalQuestionsAttempted?: number;
+
+    @Field(() => Int, { nullable: true })
+    @IsOptional()
+    @IsInt()
+    @Min(0, { message: 'Correct answers cannot be negative' })
+    totalCorrectAnswers?: number;
+
+    @Field(() => String, { nullable: true })
+    @IsOptional()
+    @IsString()
+    @IsNumberString({}, { message: 'Accuracy must be a numeric string' })
+    overallAccuracy?: string;
+
+    @Field(() => Int, { nullable: true })
+    @IsOptional()
+    @IsInt()
+    @Min(0, { message: 'Practice time cannot be negative' })
+    totalPracticeTimeMinutes?: number;
 }

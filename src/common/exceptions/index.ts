@@ -1,1 +1,1 @@
-export * from './graphql-exceptions'
+export * from './graphql-exceptions';

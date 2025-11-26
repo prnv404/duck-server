@@ -1,7 +1,7 @@
 import { pgTable, uuid, integer, decimal, timestamp, index, unique } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { users } from './users'; // Import users schema
-import { topics } from './topics'; // Import topics schema
+import { users } from './users';
+import { topics } from './topics';
 import { relations } from 'drizzle-orm';
 
 export const userTopicProgress = pgTable(
@@ -34,28 +34,19 @@ export const userTopicProgress = pgTable(
         updatedAt: timestamp('updated_at', { mode: 'date' })
             .defaultNow()
             .notNull()
-            .$onUpdateFn(() => new Date()), // Automatically updates the timestamp on every row update
+            .$onUpdateFn(() => new Date()),
     },
-    (table) => [
-        // Unique Constraint: Ensures a user only has one progress record per topic.
-        unique('user_topic_unique').on(table.userId, table.topicId),
-
-        // Index: Optimized for finding all topics practiced by a user, sorted by accuracy (ASC).
-        // ASC order is useful for finding the user's weakest topics quickly.
-        index('idx_topic_progress_user').on(table.userId, table.accuracy),
-    ],
+    (table) => [unique('user_topic_unique').on(table.userId, table.topicId), index('idx_topic_progress_user').on(table.userId, table.accuracy)],
 );
 
 export type UserTopicProgress = typeof userTopicProgress.$inferSelect;
 export type NewUserTopicProgress = typeof userTopicProgress.$inferInsert;
 
 export const userTopicProgressRelations = relations(userTopicProgress, ({ one }) => ({
-    // The progress entry belongs to ONE user
     user: one(users, {
         fields: [userTopicProgress.userId],
         references: [users.id],
     }),
-    // The progress entry tracks ONE topic
     topic: one(topics, {
         fields: [userTopicProgress.topicId],
         references: [topics.id],

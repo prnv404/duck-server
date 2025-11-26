@@ -57,7 +57,6 @@ export class NotAcceptableError extends CustomGraphQLError {
     }
 }
 
-
 export class ConflictError extends CustomGraphQLError {
     constructor(message: string = 'Conflict') {
         super(message, 'CONFLICT', 409);
