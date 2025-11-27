@@ -4,7 +4,13 @@
  */
 
 import { Logger } from '@nestjs/common';
-import { IIntegration, IntegrationMetadata, IntegrationConfigField, IntegrationConfig, IntegrationStatus } from '../types/integration.interface';
+import {
+    IIntegration,
+    IntegrationMetadata,
+    IntegrationConfigField,
+    IntegrationConfig,
+    IntegrationStatus,
+} from '../types/integration.interface';
 
 export abstract class BaseIntegration implements IIntegration {
     protected logger: Logger;

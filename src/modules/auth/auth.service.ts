@@ -46,7 +46,6 @@ export class AuthService {
         // Find or Create User
         let user = await this.userService.findByPhone(phone);
 
-
         if (!user) {
             // Create new user
             // We need a username. Let's generate one or ask for it?
@@ -54,7 +53,7 @@ export class AuthService {
             const username = `user_${phone.slice(-4)}_${Math.floor(Math.random() * 1000)}`;
             user = await this.userService.createNewUser({
                 phone,
-                username
+                username,
             });
         }
 
@@ -62,7 +61,7 @@ export class AuthService {
         await this.updateRefreshToken(user.id, tokens.refreshToken);
 
         return {
-            user,
+            user: user as any,
             ...tokens,
         };
     }

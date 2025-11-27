@@ -99,7 +99,12 @@ export class DatadogTelemetryIntegration extends BaseIntegration implements ITel
         this.logger.log('Datadog integration initialized (mock)');
     }
 
-    async trackEvent(params: { event: string; userId?: string; properties?: Record<string, any>; timestamp?: Date }): Promise<IntegrationResponse> {
+    async trackEvent(params: {
+        event: string;
+        userId?: string;
+        properties?: Record<string, any>;
+        timestamp?: Date;
+    }): Promise<IntegrationResponse> {
         this.ensureActive();
 
         try {

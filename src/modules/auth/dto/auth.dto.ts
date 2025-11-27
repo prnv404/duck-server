@@ -1,11 +1,11 @@
 import { Field, InputType, ObjectType } from '@nestjs/graphql';
 import { IsEmail, IsNotEmpty, IsString, MinLength, IsOptional } from 'class-validator';
-import { UserModel } from '@/modules/user/user.model';
+import { User } from '@/modules/user/models/user.model';
 
 @ObjectType()
 export class AuthResponse {
-    @Field(() => UserModel)
-    user: UserModel;
+    @Field(() => User)
+    user: User;
 
     @Field()
     accessToken: string;

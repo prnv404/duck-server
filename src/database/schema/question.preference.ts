@@ -65,7 +65,6 @@ export enum QuestionPreferenceType {
     BALANCED = 'balanced',
     ADAPTIVE = 'adaptive',
     WEAK_AREA = 'weak_area',
-    TOPIC_PRACTICE = 'topic_practice',
-    DAILY_CHALLENGE = 'daily_challenge',
+    HARD_CORE = 'hard_core',
     SUBJECT_FOCUS = 'subject_focus',
 }

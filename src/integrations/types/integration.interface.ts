@@ -218,7 +218,12 @@ export interface ITelemetryIntegration extends IIntegration {
     /**
      * Track an event
      */
-    trackEvent(params: { event: string; userId?: string; properties?: Record<string, any>; timestamp?: Date }): Promise<IntegrationResponse>;
+    trackEvent(params: {
+        event: string;
+        userId?: string;
+        properties?: Record<string, any>;
+        timestamp?: Date;
+    }): Promise<IntegrationResponse>;
 
     /**
      * Track a metric

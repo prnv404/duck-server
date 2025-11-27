@@ -18,6 +18,7 @@ export const userStats = pgTable(
         totalXp: integer('total_xp').default(0).notNull(),
         level: integer('level').default(1).notNull(),
         xpToNextLevel: integer('xp_to_next_level').default(100).notNull(),
+        energy: integer('energy').default(0).notNull(),
 
         // Streaks
         currentStreak: integer('current_streak').default(0).notNull(),

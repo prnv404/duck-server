@@ -1,7 +1,7 @@
 import { Resolver } from '@nestjs/graphql';
 import { TopicService } from './topic.service';
 import { Args, Query } from '@nestjs/graphql';
-import { SubjectModel, TopicModel } from './topic.model';
+import { SubjectModel, TopicModel } from './model.ts/topic.model';
 
 @Resolver()
 export class TopicResolver {

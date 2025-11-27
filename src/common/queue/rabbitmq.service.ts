@@ -97,7 +97,9 @@ export class RabbitMQService implements OnModuleDestroy {
                 const exchangeName = queue.exchange || 'main.exchange';
 
                 await this.channel.bindQueue(queue.name, exchangeName, queue.routingKey);
-                this.logger.log(`Queue '${queue.name}' bound to exchange '${exchangeName}' with routing key '${queue.routingKey}'`);
+                this.logger.log(
+                    `Queue '${queue.name}' bound to exchange '${exchangeName}' with routing key '${queue.routingKey}'`,
+                );
             }
 
             this.logger.log(`Queue '${queue.name}' created and bound`);

@@ -36,7 +36,10 @@ export const userTopicProgress = pgTable(
             .notNull()
             .$onUpdateFn(() => new Date()),
     },
-    (table) => [unique('user_topic_unique').on(table.userId, table.topicId), index('idx_topic_progress_user').on(table.userId, table.accuracy)],
+    (table) => [
+        unique('user_topic_unique').on(table.userId, table.topicId),
+        index('idx_topic_progress_user').on(table.userId, table.accuracy),
+    ],
 );
 
 export type UserTopicProgress = typeof userTopicProgress.$inferSelect;

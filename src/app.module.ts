@@ -14,10 +14,10 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { DataLoaderInterceptor } from './common/dataloader/dataloader.interceptor';
 import { UserModule } from '@/modules/user/user.module';
 import { AuthModule } from '@/modules/auth/auth.module';
-import { TopicModule } from './modules/topic/topic.module';
-import { QuestionModule } from './modules/question/question.module';
-import { QuizModule } from './modules/quiz/quiz.module';
-import { GamificationModule } from './modules/gamification/gamification.module';
+import { TopicModule } from '@/modules/curriculum/topic.module';
+import { QuestionModule } from '@/modules/question/question.module';
+import { QuizModule } from '@/modules/quiz/quiz.module';
+import { GamificationModule } from '@/modules/gamification/gamification.module';
 
 @Module({
     imports: [
