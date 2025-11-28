@@ -18,6 +18,7 @@ import { TopicModule } from '@/modules/curriculum/topic.module';
 import { QuestionModule } from '@/modules/question/question.module';
 import { QuizModule } from '@/modules/practice/practice.module';
 import { GamificationModule } from '@/modules/gamification/gamification.module';
+import { AppController } from './app.controller';
 
 @Module({
     imports: [
@@ -26,12 +27,6 @@ import { GamificationModule } from '@/modules/gamification/gamification.module';
         TerminusModule,
         // RabbitMQModule,
         GraphqlConfigModule,
-        ThrottlerModule.forRoot([
-            {
-                ttl: 60000,
-                limit: 10,
-            },
-        ]),
         UserModule,
         AuthModule,
         TopicModule,
@@ -39,7 +34,7 @@ import { GamificationModule } from '@/modules/gamification/gamification.module';
         QuizModule,
         GamificationModule,
     ],
-    controllers: [],
+    controllers: [AppController],
     providers: [
         AppService,
         ComplexityPlugin,
