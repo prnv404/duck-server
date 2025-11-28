@@ -8,7 +8,7 @@ import {
     userTopicProgress,
     userBadges,
     badges,
-    quizSessions,
+    practiceSessions,
     topics,
     subjects,
 } from '@/database/schema';
@@ -133,14 +133,14 @@ export class GamificationService {
 
                 const result = await tx
                     .select({ count: count() })
-                    .from(quizSessions)
-                    .innerJoin(topics, eq(quizSessions.topicId, topics.id))
+                    .from(practiceSessions)
+                    .innerJoin(topics, eq(practiceSessions.topicId, topics.id))
                     .innerJoin(subjects, eq(topics.subjectId, subjects.id))
                     .where(
                         and(
-                            eq(quizSessions.userId, userId),
+                            eq(practiceSessions.userId, userId),
                             eq(subjects.name, criteria.subject), // ← Now safe: criteria.subject is checked
-                            eq(quizSessions.status, 'completed'),
+                            eq(practiceSessions.status, 'completed'),
                         ),
                     );
 

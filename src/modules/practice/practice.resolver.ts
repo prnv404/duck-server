@@ -1,7 +1,7 @@
 import { Args, Mutation, Resolver } from '@nestjs/graphql';
 import { QuizSessionService } from './practice.service';
 import { CreateQuizSessionInput } from './practice.dto';
-import { QuizSession } from '@/database/schema';
+import { practiceSessions } from '@/database/schema';
 import { QuestionWithAnswers } from '@/modules/question/question.service';
 import { QuizSessionWithQuestions } from './models/practice.session.model';
 
