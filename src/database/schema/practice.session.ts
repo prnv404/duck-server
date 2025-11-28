@@ -6,8 +6,8 @@ import { relations } from 'drizzle-orm';
 import { sessionAnswers } from './session.answers';
 import { jsonb } from 'drizzle-orm/pg-core';
 
-export const quizSessions = pgTable(
-    'quiz_sessions',
+export const practiceSessions = pgTable(
+    'practice_sessions',
     {
         id: uuid('id')
             .primaryKey()
@@ -66,16 +66,16 @@ export const quizSessions = pgTable(
     ],
 );
 
-export type QuizSession = typeof quizSessions.$inferSelect;
-export type NewQuizSession = typeof quizSessions.$inferInsert;
+export type PracticeSession = typeof practiceSessions.$inferSelect;
+export type NewPracticeSession = typeof practiceSessions.$inferInsert;
 
-export const quizSessionsRelations = relations(quizSessions, ({ one, many }) => ({
+export const practiceSessionsRelations = relations(practiceSessions, ({ one, many }) => ({
     user: one(users, {
-        fields: [quizSessions.userId],
+        fields: [practiceSessions.userId],
         references: [users.id],
     }),
     topic: one(topics, {
-        fields: [quizSessions.topicId],
+        fields: [practiceSessions.topicId],
         references: [topics.id],
     }),
     sessionAnswers: many(sessionAnswers),

@@ -13,7 +13,7 @@ import {
     type AnswerOption,
     QuestionPreferenceType,
 } from '@/database/schema';
-import { CreateQuizSessionInput } from '../quiz/quiz.dto';
+import { CreateQuizSessionInput } from '../practice/practice.dto';
 
 export interface QuestionWithAnswers extends Question {
     answerOptions: AnswerOption[];
@@ -21,7 +21,7 @@ export interface QuestionWithAnswers extends Question {
 
 @Injectable()
 export class QuestionGenerationService {
-    constructor(@Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB) {}
+    constructor(@Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB) { }
 
     async generateQuestions(dto: CreateQuizSessionInput & { count: number }): Promise<QuestionWithAnswers[]> {
         const { userId, count = 15, type, subjectIds } = dto;
@@ -151,6 +151,9 @@ export class QuestionGenerationService {
                 ),
             );
         }
+
+
+
         return conditions;
     }
 

@@ -1,7 +1,7 @@
 import { ObjectType, Field, ID, Float, Int, GraphQLISODateTime } from '@nestjs/graphql';
 import { registerEnumType } from '@nestjs/graphql';
 import { GraphQLJSON } from 'graphql-scalars';
-import { SessionAnswer } from './session.answer.model';
+import { SessionAnswer } from './practice.answer.model';
 import { TopicModel } from '@/modules/curriculum/model.ts/topic.model';
 import { User } from '@/modules/user/models/user.model';
 import { QuestionWithAnswers } from '@/modules/question/question.service';

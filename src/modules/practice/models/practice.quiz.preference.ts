@@ -1,6 +1,5 @@
 import { ObjectType, Field, ID, Int, Float } from '@nestjs/graphql';
 import { User } from '@/modules/user/models/user.model';
-
 import { registerEnumType } from '@nestjs/graphql';
 
 export enum QuestionPreferenceType {

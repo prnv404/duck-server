@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { QuizSessionService } from './quiz.service';
-import { QuizResolver } from './quiz.resolver';
+import { QuizSessionService } from './practice.service';
+import { QuizResolver } from './practice.resolver';
 import { DatabaseModule } from '@/database';
 import { QuestionModule } from '@/modules/question/question.module';
 
@@ -8,4 +8,4 @@ import { QuestionModule } from '@/modules/question/question.module';
     imports: [DatabaseModule, QuestionModule],
     providers: [QuizSessionService, QuizResolver],
 })
-export class QuizModule {}
+export class QuizModule { }

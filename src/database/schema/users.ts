@@ -1,6 +1,6 @@
 import { pgTable, uuid, varchar, text, boolean, timestamp, index } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
-import { quizSessions } from './quiz.session';
+import { practiceSessions } from './practice.session';
 import { userStats } from './user.status';
 import { streakCalendar } from './streak.calender';
 import { userBadges } from './user.badges';
@@ -37,7 +37,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     userStats: one(userStats),
     streakCalendar: many(streakCalendar),
     userBadges: many(userBadges),
-    quizSessions: many(quizSessions),
+    practiceSessions: many(practiceSessions),
     userTopicProgress: many(userTopicProgress),
     leaderboardEntries: many(leaderboardEntries),
     userQuestionHistory: many(userQuestionHistory),

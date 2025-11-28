@@ -1,6 +1,6 @@
 import { pgTable, uuid, boolean, integer, timestamp, index } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { quizSessions } from './quiz.session';
+import { practiceSessions } from './practice.session';
 import { questions } from './questions';
 import { answerOptions } from './answer.options';
 import { relations } from 'drizzle-orm';
@@ -14,7 +14,7 @@ export const sessionAnswers = pgTable(
 
         sessionId: uuid('session_id')
             .notNull()
-            .references(() => quizSessions.id, { onDelete: 'cascade' }),
+            .references(() => practiceSessions.id, { onDelete: 'cascade' }),
         questionId: uuid('question_id')
             .notNull() // Assuming a session answer must always relate to a question
             .references(() => questions.id, { onDelete: 'set null' }),
@@ -33,9 +33,9 @@ export const sessionAnswers = pgTable(
 
 export const sessionAnswersRelations = relations(sessionAnswers, ({ one }) => ({
     // The answer belongs to ONE session
-    session: one(quizSessions, {
+    session: one(practiceSessions, {
         fields: [sessionAnswers.sessionId],
-        references: [quizSessions.id],
+        references: [practiceSessions.id],
     }),
     // The answer relates to ONE question
     question: one(questions, {

@@ -1,10 +1,10 @@
 // src/quiz/quiz-session.service.ts
 
-import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { and, eq, gte, sql, inArray } from 'drizzle-orm';
 import * as Database from '@/database';
 import {
-    quizSessions,
+    practiceSessions,
     sessionAnswers,
     questions,
     answerOptions,
@@ -14,13 +14,13 @@ import {
     streakCalendar,
     users,
     userQuizPreferences,
-    type QuizSession,
+    type PracticeSession,
     type SessionAnswer,
     type Question,
 } from '@/database/schema';
 import { QuestionGenerationService, QuestionWithAnswers } from '@/modules/question/question.service';
 import { BadRequestError, NotFoundError } from '@/common/exceptions';
-import { CreateQuizSessionInput } from './quiz.dto';
+import { CreateQuizSessionInput } from './practice.dto';
 import { QuestionModel } from '../question/models/question.model';
 
 export interface SubmitAnswerDto {
@@ -36,9 +36,9 @@ export class QuizSessionService {
         @Inject(Database.DRIZZLE)
         private readonly db: Database.DrizzleDB,
         private readonly questionGen: QuestionGenerationService,
-    ) {}
+    ) { }
 
-    async startQuiz(dto: CreateQuizSessionInput): Promise<QuizSession & { questions: QuestionModel[] }> {
+    async startQuiz(dto: CreateQuizSessionInput): Promise<PracticeSession & { questions: QuestionModel[] }> {
         const { userId, type, totalQuestions = 10, topicId, subjectIds } = dto;
 
         console.log(dto);
@@ -48,7 +48,7 @@ export class QuizSessionService {
             this.db.select().from(userQuizPreferences).where(eq(userQuizPreferences.userId, userId)).limit(1),
         ]);
 
-        if (!user[0]) throw new NotFoundException('User not found');
+        if (!user[0]) throw new NotFoundError('User not found');
 
         const questionCount = totalQuestions ?? preferences[0]?.defaultQuestionsPerSession ?? 10;
 
@@ -67,7 +67,7 @@ export class QuizSessionService {
         }
 
         const [session] = await this.db
-            .insert(quizSessions)
+            .insert(practiceSessions)
             .values({
                 userId,
                 sessionType: type,
@@ -92,7 +92,7 @@ export class QuizSessionService {
         const { sessionId, questionId, selectedOptionId, timeSpentSeconds } = dto;
 
         const [sessionResult, questionResult, existingAnswer] = await Promise.all([
-            this.db.select().from(quizSessions).where(eq(quizSessions.id, sessionId)).limit(1),
+            this.db.select().from(practiceSessions).where(eq(practiceSessions.id, sessionId)).limit(1),
             this.db.select().from(questions).where(eq(questions.id, questionId)).limit(1),
             this.db
                 .select()
@@ -129,37 +129,37 @@ export class QuizSessionService {
             .returning();
 
         await this.db
-            .update(quizSessions)
+            .update(practiceSessions)
             .set({
-                questionsAttempted: sql`${quizSessions.questionsAttempted} + 1`,
+                questionsAttempted: sql`${practiceSessions.questionsAttempted} + 1`,
 
-                correctAnswers: isCorrect ? sql`${quizSessions.correctAnswers} + 1` : quizSessions.correctAnswers,
+                correctAnswers: isCorrect ? sql`${practiceSessions.correctAnswers} + 1` : practiceSessions.correctAnswers,
 
-                wrongAnswers: isCorrect ? quizSessions.wrongAnswers : sql`${quizSessions.wrongAnswers} + 1`,
+                wrongAnswers: isCorrect ? practiceSessions.wrongAnswers : sql`${practiceSessions.wrongAnswers} + 1`,
 
                 accuracy: sql`
                     ROUND(
-                        (CAST(${quizSessions.correctAnswers} + ${isCorrect ? 1 : 0} AS FLOAT) /
-                         CAST(${quizSessions.questionsAttempted} + 1 AS FLOAT)) * 100,
+                        (CAST(${practiceSessions.correctAnswers} + ${isCorrect ? 1 : 0} AS FLOAT) /
+                         CAST(${practiceSessions.questionsAttempted} + 1 AS FLOAT)) * 100,
                         2
                     )
                 `,
 
                 timeSpentSeconds: sql`
-                    COALESCE(${quizSessions.timeSpentSeconds}, 0)
+                    COALESCE(${practiceSessions.timeSpentSeconds}, 0)
                     + ${timeSpentSeconds}
                 `,
             })
-            .where(eq(quizSessions.id, sessionId));
+            .where(eq(practiceSessions.id, sessionId));
 
         return answer;
     }
 
-    async completeSession(sessionId: string): Promise<QuizSession> {
-        const [sessionResult] = await this.db.select().from(quizSessions).where(eq(quizSessions.id, sessionId)).limit(1);
+    async completeSession(sessionId: string): Promise<PracticeSession> {
+        const [sessionResult] = await this.db.select().from(practiceSessions).where(eq(practiceSessions.id, sessionId)).limit(1);
 
         const session = sessionResult;
-        if (!session) throw new NotFoundException('Session not found');
+        if (!session) throw new NotFoundError('Session not found');
         if (session.status === 'completed') return session;
 
         const answers = await this.db.select().from(sessionAnswers).where(eq(sessionAnswers.sessionId, sessionId));
@@ -173,14 +173,14 @@ export class QuizSessionService {
 
         await this.db.transaction(async (tx) => {
             await tx
-                .update(quizSessions)
+                .update(practiceSessions)
                 .set({
                     status: 'completed',
                     completedAt: today,
                     xpEarned,
                     accuracy: session.totalQuestions > 0 ? ((correctCount / session.totalQuestions) * 100).toFixed(2) : '0.00',
                 })
-                .where(eq(quizSessions.id, sessionId));
+                .where(eq(practiceSessions.id, sessionId));
 
             await tx
                 .update(userStats)
@@ -312,15 +312,15 @@ export class QuizSessionService {
                 .where(eq(userStats.userId, session.userId));
         });
 
-        const [updated] = await this.db.select().from(quizSessions).where(eq(quizSessions.id, sessionId));
+        const [updated] = await this.db.select().from(practiceSessions).where(eq(practiceSessions.id, sessionId));
         return updated;
     }
 
-    async getActiveSession(userId: string): Promise<QuizSession | null> {
+    async getActiveSession(userId: string): Promise<PracticeSession | null> {
         const [session] = await this.db
             .select()
-            .from(quizSessions)
-            .where(and(eq(quizSessions.userId, userId), eq(quizSessions.status, 'in_progress')))
+            .from(practiceSessions)
+            .where(and(eq(practiceSessions.userId, userId), eq(practiceSessions.status, 'in_progress')))
             .orderBy(sql`created_at DESC`)
             .limit(1);
 

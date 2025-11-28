@@ -2,7 +2,7 @@
 // SessionAnswer GraphQL Type
 
 import { ObjectType, ID, Int, Field } from '@nestjs/graphql';
-import { QuizSession } from './quiz.session.model';
+import { QuizSession } from './practice.session.model';
 import { QuestionModel } from '@/modules/question/models/question.model';
 import { AnswerOption } from '@/modules/question/models/answer.options.model';
 

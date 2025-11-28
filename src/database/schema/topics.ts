@@ -2,8 +2,8 @@ import { pgTable, uuid, varchar, text, integer, timestamp, index, boolean } from
 import { sql } from 'drizzle-orm';
 import { relations } from 'drizzle-orm';
 import { questions } from './questions';
-import { quizSessions } from './quiz.session';
 import { userTopicProgress } from './user.progress';
+import { practiceSessions } from './practice.session';
 
 export const subjects = pgTable(
     'subjects',
@@ -78,6 +78,6 @@ export const topicsRelations = relations(topics, ({ one, many }) => ({
         references: [subjects.id],
     }),
     questions: many(questions),
-    quizSessions: many(quizSessions),
+    practiceSessions: many(practiceSessions),
     userTopicProgress: many(userTopicProgress),
 }));
