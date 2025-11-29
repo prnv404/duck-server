@@ -21,6 +21,7 @@ import {
 import { QuestionGenerationService, QuestionWithAnswers } from '@/modules/question/question.service';
 import { BadRequestError, NotFoundError } from '@/common/exceptions';
 import { CreateSessionInput } from './practice.dto';
+import { GamificationService } from '@/modules/gamification/gamification.service';
 
 export interface SubmitAnswerDto {
     sessionId: string;
@@ -35,6 +36,7 @@ export class QuizSessionService {
         @Inject(Database.DRIZZLE)
         private readonly db: Database.DrizzleDB,
         private readonly questionGen: QuestionGenerationService,
+        private readonly gamificationService: GamificationService,
     ) {}
 
     async getPracticeSession(sessionId: string): Promise<PracticeSession> {
@@ -338,6 +340,17 @@ if (lastActivityDate) {
                     xpEarned: sql`${streakCalendar.xpEarned} + ${xpEarned}`,
                 },
             });
+        
+        // await this.gamificationService.processQuizCompletion(session.userId, {
+        //     id: sessionId,
+        //     correctAnswers: session.correctAnswers,
+        //     questionsAttempted: session.questionsAttempted,
+        //     xpEarned,
+        //     timeSpentSeconds: session.timeSpentSeconds!,
+        //     accuracy: Number(session.accuracy),
+        //     topicId: session.topicId,
+        //     completedAt: session.completedAt!,
+        // });
     });
 
     const [updated] = await this.db.select().from(practiceSessions).where(eq(practiceSessions.id, sessionId));

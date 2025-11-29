@@ -13,6 +13,7 @@ import { QuestionModule } from '@/modules/question/question.module';
 import { PracticeModule } from '@/modules/practice/practice.module';
 import { GamificationModule } from '@/modules/gamification/gamification.module';
 import { AppController } from './app.controller';
+import { RequestLoggerInterceptor } from './common/interceptors/request-logger.interceptor';
 
 @Module({
     imports: [
@@ -46,7 +47,10 @@ import { AppController } from './app.controller';
             provide: APP_PIPE,
             useClass: ValidationPipe,
         },
+        {
+            provide: APP_INTERCEPTOR,
+            useClass: RequestLoggerInterceptor,
+        },
     ],
 })
 export class AppModule { }
-

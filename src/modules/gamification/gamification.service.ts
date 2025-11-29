@@ -45,8 +45,8 @@ export class GamificationService {
             today.setHours(0, 0, 0, 0);
 
             await this.updateXpAndLevel(tx, userId, session);
-            await this.maintainStreak(tx, userId, today, session);
-            if (session.topicId) await this.updateTopicProgress(tx, userId, session.topicId, session);
+            // await this.maintainStreak(tx, userId, today, session);
+            // if (session.topicId) await this.updateTopicProgress(tx, userId, session.topicId, session);
 
             const unlockedBadges = await this.evaluateAllBadgesDynamically(tx, userId, session);
 
