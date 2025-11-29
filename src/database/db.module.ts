@@ -30,7 +30,7 @@ export type DrizzleDB = NodePgDatabase<typeof schema>;
                     user: configService.get('DATABASE_USER'),
                     password: configService.get('DATABASE_PASSWORD'),
                     database: configService.get('DATABASE_NAME'),
-                    ssl: true,
+                    ssl: false,
                     max: configService.get('DATABASE_POOL_SIZE'),
                     idleTimeoutMillis: 30000,
                     connectionTimeoutMillis: 2000,

@@ -1,6 +1,6 @@
 import { pgTable, uuid, text, integer, boolean, timestamp, index } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { topics } from './topics'; // Assuming topics is imported from './topics'
+import { topics } from './curriculum'; // Assuming topics is imported from './topics'
 import { relations } from 'drizzle-orm';
 import { answerOptions } from './answer.options';
 import { sessionAnswers } from './session.answers';

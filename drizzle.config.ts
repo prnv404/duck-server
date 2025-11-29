@@ -4,6 +4,10 @@ import * as dotenv from 'dotenv';
 
 dotenv.config();
 
+
+const env  = process.env.NODE_ENV || 'development';
+
+console.log(env)
 export default {
   schema: './src/database/schema/*',
   out: './migrations',
@@ -14,7 +18,7 @@ export default {
     user: process.env.DATABASE_USER!,
     password: process.env.DATABASE_PASSWORD!,
     database: process.env.DATABASE_NAME!,
-    ssl: { rejectUnauthorized: false }
+    ssl: env === 'production' ? true : false,
 
   },
 } satisfies Config;

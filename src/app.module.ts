@@ -14,7 +14,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { DataLoaderInterceptor } from './common/dataloader/dataloader.interceptor';
 import { UserModule } from '@/modules/user/user.module';
 import { AuthModule } from '@/modules/auth/auth.module';
-import { TopicModule } from '@/modules/curriculum/topic.module';
+import { TopicModule } from '@/modules/curriculum/curriculum.module';
 import { QuestionModule } from '@/modules/question/question.module';
 import { QuizModule } from '@/modules/practice/practice.module';
 import { GamificationModule } from '@/modules/gamification/gamification.module';
@@ -25,7 +25,6 @@ import { AppController } from './app.controller';
         AppConfigModule,
         DatabaseModule,
         TerminusModule,
-        // RabbitMQModule,
         GraphqlConfigModule,
         UserModule,
         AuthModule,
@@ -51,10 +50,6 @@ import { AppController } from './app.controller';
             provide: APP_PIPE,
             useClass: ValidationPipe,
         },
-        // {
-        //     provide: APP_GUARD,
-        //     useClass: ThrottlerGuard,
-        // },
     ],
 })
-export class AppModule { }
+export class AppModule {}

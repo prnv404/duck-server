@@ -1,5 +1,5 @@
 export * from './users';
-export * from './topics';
+export * from './curriculum';
 export * from './questions';
 export * from './practice.session';
 export * from './user.progress';
@@ -14,3 +14,6 @@ export * from './answer.options';
 export * from './notification';
 export * from './question.history';
 export * from './question.preference';
+export * from './boards';
+export * from './user.enrollment';
+export * from './syllabus.entries';

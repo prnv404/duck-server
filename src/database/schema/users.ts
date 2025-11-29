@@ -9,6 +9,7 @@ import { leaderboardEntries } from './leaderboard';
 import { userQuestionHistory } from './question.history';
 import { userQuizPreferences } from './question.preference';
 import { notificationQueue } from './notification';
+import { userEnrollments } from './user.enrollment';
 
 export const users = pgTable(
     'users',
@@ -43,4 +44,5 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     userQuestionHistory: many(userQuestionHistory),
     userQuizPreferences: one(userQuizPreferences),
     notificationQueue: many(notificationQueue),
+    userEnrollments: many(userEnrollments),
 }));

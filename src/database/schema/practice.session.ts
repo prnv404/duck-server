@@ -1,7 +1,7 @@
 import { pgTable, uuid, varchar, integer, decimal, timestamp, index } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { users } from './users'; // Import users schema
-import { topics } from './topics'; // Import topics schema
+import { topics } from './curriculum'; // Import topics schema
 import { relations } from 'drizzle-orm';
 import { sessionAnswers } from './session.answers';
 import { jsonb } from 'drizzle-orm/pg-core';
@@ -23,6 +23,8 @@ export const practiceSessions = pgTable(
 
         // Optional Foreign Key to topics table
         topicId: uuid('topic_id').references(() => topics.id, { onDelete: 'set null' }),
+
+        // enrollmentId: uuid('enrollment_id').references(() => enrollments.id, { onDelete: 'set null' }),
 
         // Configuration
         totalQuestions: integer('total_questions').default(10).notNull(),

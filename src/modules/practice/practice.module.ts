@@ -8,4 +8,4 @@ import { QuestionModule } from '@/modules/question/question.module';
     imports: [DatabaseModule, QuestionModule],
     providers: [QuizSessionService, QuizResolver],
 })
-export class QuizModule { }
+export class QuizModule {}

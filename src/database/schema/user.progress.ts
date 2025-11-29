@@ -1,7 +1,7 @@
 import { pgTable, uuid, integer, decimal, timestamp, index, unique } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { users } from './users';
-import { topics } from './topics';
+import { topics } from './curriculum';
 import { relations } from 'drizzle-orm';
 
 export const userTopicProgress = pgTable(

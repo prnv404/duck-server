@@ -7,7 +7,7 @@ import { QuizSessionWithQuestions } from './models/practice.session.model';
 
 @Resolver()
 export class QuizResolver {
-    constructor(private readonly quizService: QuizSessionService) { }
+    constructor(private readonly quizService: QuizSessionService) {}
 
     @Mutation(() => QuizSessionWithQuestions)
     async createQuizSession(@Args('input') input: CreateQuizSessionInput): Promise<QuizSessionWithQuestions> {

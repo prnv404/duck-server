@@ -36,7 +36,7 @@ export class QuizSessionService {
         @Inject(Database.DRIZZLE)
         private readonly db: Database.DrizzleDB,
         private readonly questionGen: QuestionGenerationService,
-    ) { }
+    ) {}
 
     async startQuiz(dto: CreateQuizSessionInput): Promise<PracticeSession & { questions: QuestionModel[] }> {
         const { userId, type, totalQuestions = 10, topicId, subjectIds } = dto;

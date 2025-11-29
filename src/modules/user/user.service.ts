@@ -118,9 +118,8 @@ export class UserService {
     }
 
     async findByPhone(phone: string): Promise<User | undefined> {
-        return this.db.query.users.findFirst({
-            where: eq(users.phone, phone),
-        });
+        const [user] = await this.db.select().from(users).where(eq(users.phone, phone));
+        return user;
     }
 
     async findAll(limit = 20, offset = 0): Promise<User[]> {
