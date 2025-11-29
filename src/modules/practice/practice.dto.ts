@@ -3,7 +3,7 @@ import { IsString, IsEnum, IsOptional, IsNumber, IsUUID, IsArray, ArrayNotEmpty,
 import { QuestionPreferenceType } from '@/database/schema';
 
 @InputType()
-export class CreateQuizSessionInput {
+export class CreateSessionInput {
     @Field(() => ID)
     @IsString()
     userId: string;

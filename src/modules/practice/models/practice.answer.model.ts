@@ -2,13 +2,13 @@
 // SessionAnswer GraphQL Type
 
 import { ObjectType, ID, Int, Field } from '@nestjs/graphql';
-import { QuizSession } from './practice.session.model';
 import { QuestionModel } from '@/modules/question/models/question.model';
 import { AnswerOption } from '@/modules/question/models/answer.options.model';
+import { PracticeSession } from './practice.session.model';
 
 // ============================================
 @ObjectType()
-export class SessionAnswer {
+export class SessionAnswerModel {
     @Field(() => ID)
     id: string;
 
@@ -31,8 +31,8 @@ export class SessionAnswer {
     answeredAt: Date;
 
     // Relations
-    @Field(() => QuizSession)
-    session: QuizSession;
+    @Field(() => PracticeSession)
+    session: PracticeSession;
 
     @Field(() => QuestionModel)
     question: QuestionModel;

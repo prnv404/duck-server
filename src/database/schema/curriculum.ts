@@ -4,7 +4,6 @@ import { relations } from 'drizzle-orm';
 import { questions } from './questions';
 import { userTopicProgress } from './user.progress';
 import { practiceSessions } from './practice.session';
-import { syllabusEntries } from './syllabus.entries';
 
 export const subjects = pgTable(
     'subjects',
@@ -81,5 +80,4 @@ export const topicsRelations = relations(topics, ({ one, many }) => ({
     questions: many(questions),
     practiceSessions: many(practiceSessions),
     userTopicProgress: many(userTopicProgress),
-    syllabusEntries: many(syllabusEntries),
 }));

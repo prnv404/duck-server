@@ -20,7 +20,7 @@ import {
 } from '@/database/schema';
 import { QuestionGenerationService, QuestionWithAnswers } from '@/modules/question/question.service';
 import { BadRequestError, NotFoundError } from '@/common/exceptions';
-import { CreateQuizSessionInput } from './practice.dto';
+import { CreateSessionInput } from './practice.dto';
 import { QuestionModel } from '../question/models/question.model';
 
 export interface SubmitAnswerDto {
@@ -38,7 +38,21 @@ export class QuizSessionService {
         private readonly questionGen: QuestionGenerationService,
     ) {}
 
-    async startQuiz(dto: CreateQuizSessionInput): Promise<PracticeSession & { questions: QuestionModel[] }> {
+    async getPracticeSession(sessionId: string): Promise<PracticeSession> {
+        const [sessionResult] = await this.db
+            .select()
+            .from(practiceSessions)
+            .where(eq(practiceSessions.id, sessionId))
+            .limit(1);
+
+        const session = sessionResult;
+
+        if (!session) throw new NotFoundError('Session not found');
+
+        return session;
+    }
+
+    async createPracticeSession(dto: CreateSessionInput): Promise<PracticeSession & { questions: QuestionModel[] }> {
         const { userId, type, totalQuestions = 10, topicId, subjectIds } = dto;
 
         console.log(dto);
@@ -128,193 +142,209 @@ export class QuizSessionService {
             })
             .returning();
 
+        // Calculate accuracy in JavaScript
+        const currentCorrect = session.correctAnswers + (isCorrect ? 1 : 0);
+        const currentAttempted = session.questionsAttempted + 1;
+        const newAccuracy = ((currentCorrect / currentAttempted) * 100).toFixed(2);
+
         await this.db
             .update(practiceSessions)
             .set({
-                questionsAttempted: sql`${practiceSessions.questionsAttempted} + 1`,
-
-                correctAnswers: isCorrect ? sql`${practiceSessions.correctAnswers} + 1` : practiceSessions.correctAnswers,
-
-                wrongAnswers: isCorrect ? practiceSessions.wrongAnswers : sql`${practiceSessions.wrongAnswers} + 1`,
-
-                accuracy: sql`
-                    ROUND(
-                        (CAST(${practiceSessions.correctAnswers} + ${isCorrect ? 1 : 0} AS FLOAT) /
-                         CAST(${practiceSessions.questionsAttempted} + 1 AS FLOAT)) * 100,
-                        2
-                    )
-                `,
-
-                timeSpentSeconds: sql`
-                    COALESCE(${practiceSessions.timeSpentSeconds}, 0)
-                    + ${timeSpentSeconds}
-                `,
+                questionsAttempted: currentAttempted,
+                correctAnswers: isCorrect ? session.correctAnswers + 1 : session.correctAnswers,
+                wrongAnswers: isCorrect ? session.wrongAnswers : session.wrongAnswers + 1,
+                accuracy: newAccuracy,
+                timeSpentSeconds: (session.timeSpentSeconds || 0) + timeSpentSeconds,
             })
             .where(eq(practiceSessions.id, sessionId));
 
         return answer;
     }
 
-    async completeSession(sessionId: string): Promise<PracticeSession> {
-        const [sessionResult] = await this.db.select().from(practiceSessions).where(eq(practiceSessions.id, sessionId)).limit(1);
+   async completeSession(sessionId: string): Promise<PracticeSession> {
+    const [sessionResult] = await this.db
+        .select()
+        .from(practiceSessions)
+        .where(eq(practiceSessions.id, sessionId))
+        .limit(1);
 
-        const session = sessionResult;
-        if (!session) throw new NotFoundError('Session not found');
-        if (session.status === 'completed') return session;
+    const session = sessionResult;
+    if (!session) throw new NotFoundError('Session not found');
+    if (session.status === 'completed') return session;
 
-        const answers = await this.db.select().from(sessionAnswers).where(eq(sessionAnswers.sessionId, sessionId));
+    const answers = await this.db.select().from(sessionAnswers).where(eq(sessionAnswers.sessionId, sessionId));
 
-        const correctCount = answers.filter((a) => a.isCorrect).length;
-        const timeSpentSeconds = session.timeSpentSeconds ?? 0;
-        const xpEarned = correctCount * 10 + Math.floor(timeSpentSeconds / 60) * 2;
+    const correctCount = answers.filter((a) => a.isCorrect).length;
+    const timeSpentSeconds = session.timeSpentSeconds ?? 0;
+    const xpEarned = correctCount * 10 + Math.floor(timeSpentSeconds / 60) * 2;
 
-        const today = new Date();
-        const todayStr = today.toISOString().split('T')[0];
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0]; // 'YYYY-MM-DD' format
 
-        await this.db.transaction(async (tx) => {
+    // Fetch current user stats for calculations
+    const [currentStats] = await this.db
+        .select()
+        .from(userStats)
+        .where(eq(userStats.userId, session.userId))
+        .limit(1);
+
+    // Calculate new totals and accuracy
+    const newTotalCorrect = (currentStats?.totalCorrectAnswers || 0) + correctCount;
+    const newTotalAttempted = (currentStats?.totalQuestionsAttempted || 0) + session.totalQuestions;
+    const newOverallAccuracy = newTotalAttempted > 0 ? ((newTotalCorrect / newTotalAttempted) * 100).toFixed(2) : '0.00';
+
+    // Calculate streak logic
+    // Calculate streak logic
+const lastActivityDate = currentStats?.lastActivityDate;
+let newCurrentStreak = 1;
+
+if (lastActivityDate) {
+    // lastActivityDate is already a Date object from Drizzle, or a string 'YYYY-MM-DD'
+    let lastDateStr: string;
+    
+    if (lastActivityDate instanceof Date) {
+        lastDateStr = lastActivityDate.toISOString().split('T')[0];
+    } else if (typeof lastActivityDate === 'string') {
+        lastDateStr = lastActivityDate;
+    } else {
+        // Handle any other format
+        lastDateStr = new Date(lastActivityDate).toISOString().split('T')[0];
+    }
+    
+    // Compare dates as strings (simpler and more reliable)
+    const todayDate = new Date(todayStr);
+    const yesterdayDate = new Date(todayDate);
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
+
+    if (lastDateStr === yesterdayStr) {
+        // Streak continues (last activity was yesterday)
+        newCurrentStreak = (currentStats?.currentStreak || 0) + 1;
+    } else if (lastDateStr === todayStr) {
+        // Already active today (keep current streak)
+        newCurrentStreak = currentStats?.currentStreak || 1;
+    } else {
+        // Streak broken (last activity was before yesterday)
+        newCurrentStreak = 1;
+    }
+}
+
+    const newLongestStreak = Math.max(currentStats?.longestStreak || 0, newCurrentStreak);
+
+    await this.db.transaction(async (tx) => {
+        // Update practice session
+        await tx
+            .update(practiceSessions)
+            .set({
+                status: 'completed',
+                completedAt: today,
+                xpEarned,
+                accuracy: session.totalQuestions > 0 ? ((correctCount / session.totalQuestions) * 100).toFixed(2) : '0.00',
+            })
+            .where(eq(practiceSessions.id, sessionId));
+
+        // Update user stats - Pass Date object for date column
+        await tx
+            .update(userStats)
+            .set({
+                totalXp: sql`${userStats.totalXp} + ${xpEarned}`,
+                totalQuizzesCompleted: sql`${userStats.totalQuizzesCompleted} + 1`,
+                totalQuestionsAttempted: newTotalAttempted,
+                totalCorrectAnswers: newTotalCorrect,
+                overallAccuracy: newOverallAccuracy,
+                totalPracticeTimeMinutes: sql`${userStats.totalPracticeTimeMinutes} + ${Math.floor(timeSpentSeconds / 60)}`,
+                currentStreak: newCurrentStreak,
+                longestStreak: newLongestStreak,
+                lastActivityDate: today,
+            })
+            .where(eq(userStats.userId, session.userId));
+
+        // Update user question history
+        for (const ans of answers) {
             await tx
-                .update(practiceSessions)
-                .set({
-                    status: 'completed',
-                    completedAt: today,
-                    xpEarned,
-                    accuracy: session.totalQuestions > 0 ? ((correctCount / session.totalQuestions) * 100).toFixed(2) : '0.00',
+                .insert(userQuestionHistory)
+                .values({
+                    userId: session.userId,
+                    questionId: ans.questionId,
+                    timesSeen: 1,
+                    timesCorrect: ans.isCorrect ? 1 : 0,
+                    lastSeenAt: today,
                 })
-                .where(eq(practiceSessions.id, sessionId));
+                .onConflictDoUpdate({
+                    target: [userQuestionHistory.userId, userQuestionHistory.questionId],
+                    set: {
+                        timesSeen: sql`${userQuestionHistory.timesSeen} + 1`,
+                        timesCorrect: sql`${userQuestionHistory.timesCorrect} + ${ans.isCorrect ? 1 : 0}`,
+                        lastSeenAt: today,
+                    },
+                });
+        }
 
-            await tx
-                .update(userStats)
-                .set({
-                    totalXp: sql`${userStats.totalXp} + ${xpEarned}`,
-                    totalQuizzesCompleted: sql`${userStats.totalQuizzesCompleted} + 1`,
-                    totalQuestionsAttempted: sql`${userStats.totalQuestionsAttempted} + ${session.totalQuestions}`,
-                    totalCorrectAnswers: sql`${userStats.totalCorrectAnswers} + ${correctCount}`,
+        // Update user topic progress
+        for (const ans of answers) {
+            const [q] = await tx
+                .select({ topicId: questions.topicId })
+                .from(questions)
+                .where(eq(questions.id, ans.questionId))
+                .limit(1);
 
-                    overallAccuracy: sql`
-                        ROUND(
-                            (CAST(${userStats.totalCorrectAnswers} + ${correctCount} AS FLOAT) /
-                             CAST(${userStats.totalQuestionsAttempted} + ${session.totalQuestions} AS FLOAT)) * 100,
-                            2
-                        )
-                    `,
+            if (q?.topicId) {
+                // Fetch current topic progress
+                const [currentProgress] = await tx
+                    .select()
+                    .from(userTopicProgress)
+                    .where(and(eq(userTopicProgress.userId, session.userId), eq(userTopicProgress.topicId, q.topicId)))
+                    .limit(1);
 
-                    totalPracticeTimeMinutes: sql`
-                        ${userStats.totalPracticeTimeMinutes}
-                        + ${Math.floor(timeSpentSeconds / 60)}
-                    `,
-                })
-                .where(eq(userStats.userId, session.userId));
+                const newTopicCorrect = (currentProgress?.correctAnswers || 0) + (ans.isCorrect ? 1 : 0);
+                const newTopicAttempted = (currentProgress?.questionsAttempted || 0) + 1;
+                const newTopicAccuracy = ((newTopicCorrect / newTopicAttempted) * 100).toFixed(2);
 
-            for (const ans of answers) {
                 await tx
-                    .insert(userQuestionHistory)
+                    .insert(userTopicProgress)
                     .values({
                         userId: session.userId,
-                        questionId: ans.questionId,
-                        timesSeen: 1,
-                        timesCorrect: ans.isCorrect ? 1 : 0,
-                        lastSeenAt: today,
+                        topicId: q.topicId,
+                        questionsAttempted: 1,
+                        correctAnswers: ans.isCorrect ? 1 : 0,
+                        accuracy: ans.isCorrect ? '100.00' : '0.00',
+                        lastPracticedAt: today,
                     })
                     .onConflictDoUpdate({
-                        target: [userQuestionHistory.userId, userQuestionHistory.questionId],
+                        target: [userTopicProgress.userId, userTopicProgress.topicId],
                         set: {
-                            timesSeen: sql`${userQuestionHistory.timesSeen} + 1`,
-                            timesCorrect: sql`${userQuestionHistory.timesCorrect} + ${ans.isCorrect ? 1 : 0}`,
-                            lastSeenAt: today,
+                            questionsAttempted: newTopicAttempted,
+                            correctAnswers: newTopicCorrect,
+                            accuracy: newTopicAccuracy,
+                            lastPracticedAt: today,
                         },
                     });
             }
+        }
 
-            for (const ans of answers) {
-                const [q] = await tx
-                    .select({ topicId: questions.topicId })
-                    .from(questions)
-                    .where(eq(questions.id, ans.questionId))
-                    .limit(1);
+        // Update streak calendar
+        await tx
+            .insert(streakCalendar)
+            .values({
+                userId: session.userId,
+                activityDate: today,
+                quizzesCompleted: 1,
+                questionsAnswered: session.totalQuestions,
+                xpEarned,
+            })
+            .onConflictDoUpdate({
+                target: [streakCalendar.userId, streakCalendar.activityDate],
+                set: {
+                    quizzesCompleted: sql`${streakCalendar.quizzesCompleted} + 1`,
+                    questionsAnswered: sql`${streakCalendar.questionsAnswered} + ${session.totalQuestions}`,
+                    xpEarned: sql`${streakCalendar.xpEarned} + ${xpEarned}`,
+                },
+            });
+    });
 
-                if (q?.topicId) {
-                    await tx
-                        .insert(userTopicProgress)
-                        .values({
-                            userId: session.userId,
-                            topicId: q.topicId,
-                            questionsAttempted: 1,
-                            correctAnswers: ans.isCorrect ? 1 : 0,
-                            accuracy: ans.isCorrect ? '100.00' : '0.00',
-                            lastPracticedAt: today,
-                        })
-                        .onConflictDoUpdate({
-                            target: [userTopicProgress.userId, userTopicProgress.topicId],
-                            set: {
-                                questionsAttempted: sql`${userTopicProgress.questionsAttempted} + 1`,
-                                correctAnswers: sql`${userTopicProgress.correctAnswers} + ${ans.isCorrect ? 1 : 0}`,
-
-                                accuracy: sql`
-                                    ROUND(
-                                        (CAST(${userTopicProgress.correctAnswers} + ${ans.isCorrect ? 1 : 0} AS FLOAT) /
-                                         CAST(${userTopicProgress.questionsAttempted} + 1 AS FLOAT)) * 100,
-                                        2
-                                    )
-                                `,
-
-                                lastPracticedAt: today,
-                            },
-                        });
-                }
-            }
-
-            await tx
-                .insert(streakCalendar)
-                .values({
-                    userId: session.userId,
-                    activityDate: todayStr as any,
-                    quizzesCompleted: 1,
-                    questionsAnswered: session.totalQuestions,
-                    xpEarned,
-                })
-                .onConflictDoUpdate({
-                    target: [streakCalendar.userId, streakCalendar.activityDate],
-                    set: {
-                        quizzesCompleted: sql`${streakCalendar.quizzesCompleted} + 1`,
-                        questionsAnswered: sql`${streakCalendar.questionsAnswered} + ${session.totalQuestions}`,
-                        xpEarned: sql`${streakCalendar.xpEarned} + ${xpEarned}`,
-                    },
-                });
-
-            await tx
-                .update(userStats)
-                .set({
-                    currentStreak: sql`
-                        CASE
-                            WHEN ${userStats.lastActivityDate}::date = DATE '${todayStr}' - INTERVAL '1 day'
-                                THEN ${userStats.currentStreak} + 1
-                            WHEN ${userStats.lastActivityDate}::date = DATE '${todayStr}'
-                                THEN ${userStats.currentStreak}
-                            ELSE 1
-                        END
-                    `,
-
-                    longestStreak: sql`
-                        GREATEST(
-                            ${userStats.longestStreak},
-                            CASE
-                                WHEN ${userStats.lastActivityDate}::date = DATE '${todayStr}' - INTERVAL '1 day'
-                                    THEN ${userStats.currentStreak} + 1
-                                WHEN ${userStats.lastActivityDate}::date = DATE '${todayStr}'
-                                    THEN ${userStats.currentStreak}
-                                ELSE 1
-                            END
-                        )
-                    `,
-
-                    lastActivityDate: sql`DATE '${todayStr}'`,
-                })
-                .where(eq(userStats.userId, session.userId));
-        });
-
-        const [updated] = await this.db.select().from(practiceSessions).where(eq(practiceSessions.id, sessionId));
-        return updated;
-    }
+    const [updated] = await this.db.select().from(practiceSessions).where(eq(practiceSessions.id, sessionId));
+    return updated;
+}
 
     async getActiveSession(userId: string): Promise<PracticeSession | null> {
         const [session] = await this.db

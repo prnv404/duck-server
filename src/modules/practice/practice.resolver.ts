@@ -1,16 +1,32 @@
-import { Args, Mutation, Resolver } from '@nestjs/graphql';
+import { Args, Mutation, Resolver,Query } from '@nestjs/graphql';
 import { QuizSessionService } from './practice.service';
-import { CreateQuizSessionInput } from './practice.dto';
-import { practiceSessions } from '@/database/schema';
-import { QuestionWithAnswers } from '@/modules/question/question.service';
-import { QuizSessionWithQuestions } from './models/practice.session.model';
+import { CreateSessionInput } from './practice.dto';
+import { SessionAnswer } from '@/database/schema';
+import { PracticeSessionWithQuestions,PracticeSession } from './models/practice.session.model';
+import { SubmitAnswerInput } from './practice.dto';
+import { SessionAnswerModel } from './models/practice.answer.model';
 
 @Resolver()
 export class QuizResolver {
     constructor(private readonly quizService: QuizSessionService) {}
 
-    @Mutation(() => QuizSessionWithQuestions)
-    async createQuizSession(@Args('input') input: CreateQuizSessionInput): Promise<QuizSessionWithQuestions> {
-        return await this.quizService.startQuiz(input);
+     @Query(() =>PracticeSession)
+    async getPracticeSession(@Args('sessionId') sessionId: string): Promise<PracticeSession> {
+        return await this.quizService.getPracticeSession(sessionId);
+    }
+
+    @Mutation(() => PracticeSessionWithQuestions)
+    async createPracticeSession(@Args('input') input: CreateSessionInput): Promise<PracticeSessionWithQuestions> {
+        return await this.quizService.createPracticeSession(input);
+    }
+
+    @Mutation(() => SessionAnswerModel)
+    async submitAnswer(@Args('input') input: SubmitAnswerInput): Promise<SessionAnswer> {
+        return await this.quizService.submitAnswer(input);
+    }
+
+    @Mutation(() => PracticeSession)
+    async completeSession(@Args('sessionId') sessionId: string): Promise<PracticeSession> {
+        return await this.quizService.completeSession(sessionId);
     }
 }

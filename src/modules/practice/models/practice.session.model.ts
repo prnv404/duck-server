@@ -1,7 +1,7 @@
 import { ObjectType, Field, ID, Float, Int, GraphQLISODateTime } from '@nestjs/graphql';
 import { registerEnumType } from '@nestjs/graphql';
 import { GraphQLJSON } from 'graphql-scalars';
-import { SessionAnswer } from './practice.answer.model';
+import { SessionAnswerModel } from './practice.answer.model';
 import { TopicModel } from '@/modules/curriculum/model.ts/topic.model';
 import { User } from '@/modules/user/models/user.model';
 import { QuestionWithAnswers } from '@/modules/question/question.service';
@@ -28,7 +28,7 @@ registerEnumType(SessionStatus, {
 // QuizSession GraphQL Type
 // ============================================
 @ObjectType()
-export class QuizSession {
+export class PracticeSession {
     @Field(() => ID)
     id: string;
 
@@ -90,12 +90,12 @@ export class QuizSession {
     @Field(() => TopicModel, { nullable: true })
     topic?: TopicModel;
 
-    @Field(() => [SessionAnswer!]!)
-    sessionAnswers?: SessionAnswer[];
+    @Field(() => [SessionAnswerModel!]!)
+    sessionAnswers?: SessionAnswerModel[];
 }
 
 @ObjectType()
-export class QuizSessionWithQuestions extends QuizSession {
+export class PracticeSessionWithQuestions extends PracticeSession {
     @Field(() => [QuestionModel])
     questions: QuestionModel[];
 }

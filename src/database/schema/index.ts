@@ -14,6 +14,3 @@ export * from './answer.options';
 export * from './notification';
 export * from './question.history';
 export * from './question.preference';
-export * from './boards';
-export * from './user.enrollment';
-export * from './syllabus.entries';

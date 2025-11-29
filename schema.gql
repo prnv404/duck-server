@@ -29,7 +29,7 @@ type Badge {
   xpReward: Int!
 }
 
-input CreateQuizSessionInput {
+input CreateSessionInput {
   subjectIds: [ID!]
   topicId: ID
   totalQuestions: Int
@@ -69,7 +69,8 @@ type LeaderboardEntry {
 }
 
 type Mutation {
-  createQuizSession(input: CreateQuizSessionInput!): QuizSessionWithQuestions!
+  completeSession(sessionId: String!): PracticeSession!
+  createPracticeSession(input: CreateSessionInput!): PracticeSessionWithQuestions!
 
   """Register a new user account"""
   createUser(input: CreateUserInput!): User!
@@ -82,6 +83,7 @@ type Mutation {
   logout: Boolean!
   refreshTokens: RefreshTokenResponse!
   requestOtp(input: RequestOtpInput!): Boolean!
+  submitAnswer(input: SubmitAnswerInput!): SessionAnswerModel!
 
   """Update an existing user profile"""
   updateUser(input: UpdateUserInput!): User!
@@ -115,7 +117,58 @@ enum PeriodType {
   WEEKLY
 }
 
+type PracticeSession {
+  accuracy: String!
+  balanceStrategy: String!
+  completedAt: DateTime
+  correctAnswers: Int!
+  createdAt: DateTime!
+  id: ID!
+  questionsAttempted: Int!
+  sessionAnswers: [SessionAnswerModel!]!
+  sessionType: String!
+  startedAt: DateTime!
+  status: SessionStatus!
+  subjectDistribution: JSON!
+  timeSpentSeconds: Int
+  topic: TopicModel
+  topicDistribution: JSON!
+  topicId: ID
+  totalQuestions: Int!
+  user: User!
+  userId: ID!
+  wrongAnswers: Int!
+  xpEarned: Int!
+}
+
+type PracticeSessionWithQuestions {
+  accuracy: String!
+  balanceStrategy: String!
+  completedAt: DateTime
+  correctAnswers: Int!
+  createdAt: DateTime!
+  id: ID!
+  questions: [QuestionModel!]!
+  questionsAttempted: Int!
+  sessionAnswers: [SessionAnswerModel!]!
+  sessionType: String!
+  startedAt: DateTime!
+  status: SessionStatus!
+  subjectDistribution: JSON!
+  timeSpentSeconds: Int
+  topic: TopicModel
+  topicDistribution: JSON!
+  topicId: ID
+  totalQuestions: Int!
+  user: User!
+  userId: ID!
+  wrongAnswers: Int!
+  xpEarned: Int!
+}
+
 type Query {
+  getPracticeSession(sessionId: String!): PracticeSession!
+
   """Get a user by ID"""
   getUser(
     """The string ID of the user"""
@@ -148,55 +201,6 @@ type QuestionModel {
   topicId: ID
 }
 
-type QuizSession {
-  accuracy: String!
-  balanceStrategy: String!
-  completedAt: DateTime
-  correctAnswers: Int!
-  createdAt: DateTime!
-  id: ID!
-  questionsAttempted: Int!
-  sessionAnswers: [SessionAnswer!]!
-  sessionType: String!
-  startedAt: DateTime!
-  status: SessionStatus!
-  subjectDistribution: JSON!
-  timeSpentSeconds: Int
-  topic: TopicModel
-  topicDistribution: JSON!
-  topicId: ID
-  totalQuestions: Int!
-  user: User!
-  userId: ID!
-  wrongAnswers: Int!
-  xpEarned: Int!
-}
-
-type QuizSessionWithQuestions {
-  accuracy: String!
-  balanceStrategy: String!
-  completedAt: DateTime
-  correctAnswers: Int!
-  createdAt: DateTime!
-  id: ID!
-  questions: [QuestionModel!]!
-  questionsAttempted: Int!
-  sessionAnswers: [SessionAnswer!]!
-  sessionType: String!
-  startedAt: DateTime!
-  status: SessionStatus!
-  subjectDistribution: JSON!
-  timeSpentSeconds: Int
-  topic: TopicModel
-  topicDistribution: JSON!
-  topicId: ID
-  totalQuestions: Int!
-  user: User!
-  userId: ID!
-  wrongAnswers: Int!
-  xpEarned: Int!
-}
-
 type RefreshTokenResponse {
   accessToken: String!
   refreshToken: String!
@@ -206,7 +210,7 @@ input RequestOtpInput {
   phone: String!
 }
 
-type SessionAnswer {
+type SessionAnswerModel {
   answeredAt: DateTime!
   id: ID!
   isCorrect: Boolean!
@@ -214,7 +218,7 @@ type SessionAnswer {
   questionId: ID!
   selectedOption: AnswerOption
   selectedOptionId: ID
-  session: QuizSession!
+  session: PracticeSession!
   sessionId: ID!
   timeSpentSeconds: Int
 }
@@ -248,6 +252,13 @@ type SubjectModel {
   name: String!
   topics: [TopicModel!]
   weightage: Int
+}
+
+input SubmitAnswerInput {
+  questionId: ID!
+  selectedOptionId: String
+  sessionId: ID!
+  timeSpentSeconds: Int!
 }
 
 type TopicModel {
@@ -284,13 +295,13 @@ type User {
   notificationQueue: [NotificationQueue!]!
   otp: String
   phone: String!
-  quizSessions: [QuizSession!]!
+  quizSessions: [PracticeSession!]!
   refreshToken: String
   streakCalendar: [StreakCalendar!]!
   targetExam: String
   userBadges: [UserBadge!]!
   userQuestionHistory: [UserQuestionHistory!]!
-  userQuizPreferences: UserQuizPreference!
+  userQuizPreferences: UserPracticePreferenceModel!
   userStats: UserStats!
   userTopicProgress: [UserTopicProgress!]!
   username: String!
@@ -306,18 +317,7 @@ type UserBadge {
   userId: ID!
 }
 
-type UserQuestionHistory {
-  id: ID!
-  lastSeenAt: DateTime!
-  question: QuestionModel!
-  questionId: ID!
-  timesCorrect: Int!
-  timesSeen: Int!
-  user: User!
-  userId: ID!
-}
-
-type UserQuizPreference {
+type UserPracticePreferenceModel {
   allowQuestionRepetition: Boolean!
   avoidRecentQuestionsDays: Int!
   createdAt: DateTime!
@@ -334,6 +334,17 @@ type UserQuizPreference {
   user: User!
   userId: ID!
   weakAreaThreshold: Float!
+}
+
+type UserQuestionHistory {
+  id: ID!
+  lastSeenAt: DateTime!
+  question: QuestionModel!
+  questionId: ID!
+  timesCorrect: Int!
+  timesSeen: Int!
+  user: User!
+  userId: ID!
 }
 
 type UserStats {

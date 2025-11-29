@@ -1,13 +1,13 @@
 import { ObjectType, Field, ID } from '@nestjs/graphql';
 import { UserStats } from './user.stats.model';
-import { UserQuizPreference } from '@/modules/practice/models/practice.quiz.preference';
+import { UserPracticePreferenceModel } from '@/modules/practice/models/practice.quiz.preference';
 import { UserBadge } from '@/modules/gamification/models/user.badges.model';
 import { UserTopicProgress } from '@/modules/curriculum/model.ts/user.topicProgress.model';
 import { StreakCalendar } from '@/modules/gamification/models/streak.calendar.model';
 import { LeaderboardEntry } from '@/modules/gamification/models/leaderboard.model';
 import { UserQuestionHistory } from '@/modules/question/models/user.question.history.model';
 import { NotificationQueue } from '@/modules/notification/models/notification.queue.model';
-import { QuizSession } from '@/modules/practice/models/practice.session.model';
+import { PracticeSession } from '@/modules/practice/models/practice.session.model';
 
 @ObjectType()
 export class User {
@@ -51,8 +51,8 @@ export class User {
     @Field(() => UserStats)
     userStats: UserStats;
 
-    @Field(() => UserQuizPreference)
-    userQuizPreferences: UserQuizPreference;
+    @Field(() => UserPracticePreferenceModel)
+    userQuizPreferences: UserPracticePreferenceModel;
 
     @Field(() => [UserBadge!]!)
     userBadges: UserBadge[];
@@ -72,6 +72,6 @@ export class User {
     @Field(() => [NotificationQueue!]!)
     notificationQueue: NotificationQueue[];
 
-    @Field(() => [QuizSession!]!)
-    quizSessions: QuizSession[];
+    @Field(() => [PracticeSession!]!)
+    quizSessions: PracticeSession[];
 }

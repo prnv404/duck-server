@@ -17,7 +17,7 @@ registerEnumType(QuestionPreferenceType, {
 });
 
 @ObjectType()
-export class UserQuizPreference {
+export class UserPracticePreferenceModel{
     @Field(() => ID)
     id: string;
 

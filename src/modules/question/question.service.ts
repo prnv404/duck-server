@@ -13,17 +13,28 @@ import {
     type AnswerOption,
     QuestionPreferenceType,
 } from '@/database/schema';
-import { CreateQuizSessionInput } from '../practice/practice.dto';
+import { CreateSessionInput } from '../practice/practice.dto';
 
 export interface QuestionWithAnswers extends Question {
     answerOptions: AnswerOption[];
+}
+
+export interface QuestionWithMetadata extends Question {
+    topicWeight: number | null;
+    subjectWeight: number | null;
+}
+
+export interface UserTopicProgressWithId {
+    topicId: string;
+    accuracy: string;
+    questionsAttempted: number;
 }
 
 @Injectable()
 export class QuestionGenerationService {
     constructor(@Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB) {}
 
-    async generateQuestions(dto: CreateQuizSessionInput & { count: number }): Promise<QuestionWithAnswers[]> {
+    async generateQuestions(dto: CreateSessionInput & { count: number }): Promise<QuestionWithAnswers[]> {
         const { userId, count = 15, type, subjectIds } = dto;
         const preferences = await this.getUserPreferences(userId);
         const baseConditions = this.getBaseExclusions(userId, preferences);
@@ -47,6 +58,9 @@ export class QuestionGenerationService {
                     preferences,
                     baseConditions,
                 );
+                break;
+            case QuestionPreferenceType.HARD_CORE:
+                questions = await this.hardCoreWeightedStrategy(userId, count, preferences, baseConditions);
                 break;
             default:
                 questions = await this.weightedBalancedStrategy(userId, count, preferences, baseConditions);
@@ -145,7 +159,6 @@ export class QuestionGenerationService {
                                 eq(userQuestionHistory.userId, userId),
                                 eq(userQuestionHistory.questionId, questions.id),
                                 gte(userQuestionHistory.lastSeenAt, cutoff),
-                                gt(userQuestionHistory.timesCorrect, 0),
                             ),
                         ),
                 ),
@@ -153,6 +166,100 @@ export class QuestionGenerationService {
         }
 
         return conditions;
+    }
+
+    private async fetchCandidateQuestionsWithMetadata(
+        userId: string,
+        baseConditions: any[],
+        excludedSubjectIds: string[],
+        options?: {
+            topicIds?: string[];
+            subjectIds?: string[];
+            minDifficulty?: number;
+            limit?: number;
+        },
+    ): Promise<QuestionWithMetadata[]> {
+        const { topicIds, subjectIds, minDifficulty, limit = 100 } = options || {};
+        const whereClauses: any[] = [
+            ...baseConditions,
+            eq(topics.is_active_in_random, true),
+            eq(subjects.is_active_in_random, true),
+            notInArray(subjects.id, excludedSubjectIds),
+        ];
+        if (topicIds?.length) {
+            whereClauses.push(inArray(questions.topicId, topicIds));
+        }
+        if (subjectIds?.length) {
+            whereClauses.push(inArray(subjects.id, subjectIds));
+        }
+        if (minDifficulty) {
+            whereClauses.push(gte(questions.difficulty, minDifficulty));
+        }
+        const where = and(...whereClauses);
+
+        const candidates = await this.db
+            .select({
+                question: questions,
+                topicWeight: topics.weightage,
+                subjectWeight: subjects.weightage,
+            })
+            .from(questions)
+            .innerJoin(topics, eq(topics.id, questions.topicId))
+            .innerJoin(subjects, eq(subjects.id, topics.subjectId))
+            .where(where)
+            .orderBy(sql`RANDOM()`)
+            .limit(limit);
+
+        return candidates.map((c) => ({
+            ...c.question,
+            topicWeight: c.topicWeight,
+            subjectWeight: c.subjectWeight,
+        }));
+    }
+
+    private computeWeight(q: QuestionWithMetadata): number {
+        return (q.topicWeight ?? 10) * (q.subjectWeight ?? 10);
+    }
+
+    private weightedSample<T extends QuestionWithMetadata>(
+        items: T[],
+        k: number,
+        getWeight: (item: T) => number,
+    ): T[] {
+        if (k >= items.length) {
+            return [...items];
+        }
+
+        const result: T[] = [];
+        let remainingItems = [...items];
+
+        for (let i = 0; i < k; i++) {
+            if (remainingItems.length === 0) {
+                break;
+            }
+
+            const weights = remainingItems.map(getWeight);
+            const totalWeight = weights.reduce((sum, w) => sum + Math.max(w, 0.1), 0); // Avoid zero weights
+
+            const r = Math.random() * totalWeight;
+            let cumulative = 0;
+            let selectedIdx = -1;
+
+            for (let j = 0; j < weights.length; j++) {
+                cumulative += Math.max(weights[j], 0.1);
+                if (r <= cumulative) {
+                    selectedIdx = j;
+                    break;
+                }
+            }
+
+            if (selectedIdx >= 0) {
+                result.push(remainingItems[selectedIdx]);
+                remainingItems.splice(selectedIdx, 1);
+            }
+        }
+
+        return result;
     }
 
     private async weightedBalancedStrategy(
@@ -163,36 +270,15 @@ export class QuestionGenerationService {
     ): Promise<Question[]> {
         const excluded =
             prefs.excludedSubjectIds.length > 0 ? prefs.excludedSubjectIds : ['00000000-0000-0000-0000-000000000000'];
-        const weightedQuestions = await this.db
-            .select({
-                question: questions,
-                weight: sql<number>`COALESCE(${topics.weightage}, 10) * COALESCE(${subjects.weightage}, 10)`,
-            })
-            .from(questions)
-            .innerJoin(topics, eq(topics.id, questions.topicId))
-            .innerJoin(subjects, eq(subjects.id, topics.subjectId))
-            .where(
-                and(
-                    eq(topics.is_active_in_random, true),
-                    eq(subjects.is_active_in_random, true),
-                    notInArray(subjects.id, excluded),
-                    ...baseConditions,
-                ),
-            )
-            .orderBy(
-                sql`RANDOM() ^ (
-        1.0 / GREATEST(
-            COALESCE(${topics.weightage}, 10) * COALESCE(${subjects.weightage}, 10),
-            1
-        )
-    )`,
-            )
-            .limit(count * 5); // oversample
-        // Final shuffle + limit
-        return this.shuffleWeighted(
-            weightedQuestions.map((q) => q.question),
-            count,
+
+        const candidates = await this.fetchCandidateQuestionsWithMetadata(
+            userId,
+            baseConditions,
+            excluded,
+            { limit: count * 5 },
         );
+
+        return this.weightedSample(candidates, count, this.computeWeight);
     }
 
     private async weakAreaWeightedStrategy(
@@ -201,37 +287,40 @@ export class QuestionGenerationService {
         prefs: any,
         baseConditions: any[],
     ): Promise<Question[]> {
-        const weakTopics = await this.db
+        const allTopicProgress = await this.db
             .select({
                 topicId: userTopicProgress.topicId,
                 accuracy: userTopicProgress.accuracy,
+                questionsAttempted: userTopicProgress.questionsAttempted,
             })
             .from(userTopicProgress)
-            .where(
-                and(
-                    eq(userTopicProgress.userId, userId),
-                    gte(userTopicProgress.questionsAttempted, prefs.minQuestionsForWeakDetection),
-                    sql`${userTopicProgress.accuracy}::float < ${prefs.weakAreaThreshold}`,
-                ),
+            .where(eq(userTopicProgress.userId, userId));
+
+        const weakTopics: UserTopicProgressWithId[] = allTopicProgress
+            .filter(
+                (tp) =>
+                    tp.questionsAttempted >= prefs.minQuestionsForWeakDetection &&
+                    parseFloat(tp.accuracy) < prefs.weakAreaThreshold,
             )
-            .orderBy(asc(userTopicProgress.accuracy))
-            .limit(20);
+            .sort((a, b) => parseFloat(a.accuracy) - parseFloat(b.accuracy))
+            .slice(0, 20);
+
         if (weakTopics.length === 0) {
             return this.weightedBalancedStrategy(userId, count, prefs, baseConditions);
         }
+
         const topicIds = weakTopics.map((t) => t.topicId);
-        const questionsWithWeight = await this.db
-            .select({
-                question: questions,
-                weight: sql<number>`COALESCE(${topics.weightage}, 10)`,
-            })
-            .from(questions)
-            .innerJoin(topics, eq(topics.id, questions.topicId))
-            .where(and(inArray(questions.topicId, topicIds), ...baseConditions));
-        return this.shuffleWeighted(
-            questionsWithWeight.map((q) => q.question),
-            count,
+        const excluded =
+            prefs.excludedSubjectIds.length > 0 ? prefs.excludedSubjectIds : ['00000000-0000-0000-0000-000000000000'];
+
+        const candidates = await this.fetchCandidateQuestionsWithMetadata(
+            userId,
+            baseConditions,
+            excluded,
+            { topicIds, limit: count * 5 },
         );
+
+        return this.weightedSample(candidates, count, this.computeWeight);
     }
 
     private async adaptiveWithWeightageStrategy(
@@ -240,44 +329,33 @@ export class QuestionGenerationService {
         prefs: any,
         baseConditions: any[],
     ): Promise<Question[]> {
-        const userStats = await this.db
-            .select({ overallAccuracy: sql<number>`COALESCE(MAX(${userTopicProgress.accuracy}), 60)` })
+        const allTopicProgress = await this.db
+            .select({
+                accuracy: userTopicProgress.accuracy,
+            })
             .from(userTopicProgress)
             .where(eq(userTopicProgress.userId, userId));
-        const accuracy = userStats[0]?.overallAccuracy || 60;
-        const targetDiff = accuracy > 75 ? 4 : accuracy > 50 ? 3 : accuracy > 30 ? 2 : 1;
-        const questionsWithWeight = await this.db
-            .select({
-                question: questions,
-                weight: sql<number>`COALESCE(${topics.weightage}, 10) * (1 + ABS(${questions.difficulty} - ${targetDiff}))::float ^ -2`,
-            })
-            .from(questions)
-            .innerJoin(topics, eq(topics.id, questions.topicId))
-            .where(and(...baseConditions))
-            .orderBy(
-                sql`RANDOM() ^ (1.0 / GREATEST(COALESCE(${topics.weightage}, 10) * (1 + ABS(${questions.difficulty} - ${targetDiff}))::float ^ -2, 0.1))`,
-            )
-            .limit(count * 4);
 
-        return this.shuffleWeighted(
-            questionsWithWeight.map((q) => q.question),
-            count,
+        const avgAccuracy =
+            allTopicProgress.length > 0
+                ? allTopicProgress.reduce((sum, tp) => sum + parseFloat(tp.accuracy), 0) / allTopicProgress.length
+                : 60;
+        const targetDiff = avgAccuracy > 75 ? 4 : avgAccuracy > 50 ? 3 : avgAccuracy > 30 ? 2 : 1;
+
+        const excluded =
+            prefs.excludedSubjectIds.length > 0 ? prefs.excludedSubjectIds : ['00000000-0000-0000-0000-000000000000'];
+
+        const candidates = await this.fetchCandidateQuestionsWithMetadata(
+            userId,
+            baseConditions,
+            excluded,
+            { limit: count * 4 },
         );
-    }
 
-    private async topicPracticeStrategy(
-        userId: string,
-        topicId: string,
-        count: number,
-        baseConditions: any[],
-    ): Promise<Question[]> {
-        const result = await this.db
-            .select({ question: questions })
-            .from(questions)
-            .where(and(eq(questions.topicId, topicId), ...baseConditions))
-            .orderBy(sql`RANDOM()`)
-            .limit(count * 3);
-        return result.map((r) => r.question).slice(0, count);
+        const getAdaptiveWeight = (q: QuestionWithMetadata) =>
+            this.computeWeight(q) * Math.pow(1 + Math.abs(q.difficulty - targetDiff), -2);
+
+        return this.weightedSample(candidates, count, getAdaptiveWeight);
     }
 
     private async subjectFocusWeightedStrategy(
@@ -290,61 +368,36 @@ export class QuestionGenerationService {
         if (subjectIds.length === 0) {
             return this.weightedBalancedStrategy(userId, count, prefs, baseConditions);
         }
-        const questionsWithWeight = await this.db
-            .select({
-                question: questions,
-                weight: sql<number>`COALESCE(${topics.weightage}, 10) * COALESCE(${subjects.weightage}, 10)`,
-            })
-            .from(questions)
-            .innerJoin(topics, eq(topics.id, questions.topicId))
-            .innerJoin(subjects, eq(subjects.id, topics.subjectId))
-            .where(and(inArray(subjects.id, subjectIds), ...baseConditions));
-        return this.shuffleWeighted(
-            questionsWithWeight.map((q) => q.question),
-            count,
+
+        const excluded =
+            prefs.excludedSubjectIds.length > 0 ? prefs.excludedSubjectIds : ['00000000-0000-0000-0000-000000000000'];
+
+        const candidates = await this.fetchCandidateQuestionsWithMetadata(
+            userId,
+            baseConditions,
+            excluded,
+            { subjectIds, limit: count * 5 },
         );
+
+        return this.weightedSample(candidates, count, this.computeWeight);
     }
 
-    private async dailyChallengeWeightedStrategy(
+    private async hardCoreWeightedStrategy(
         userId: string,
         count: number,
         prefs: any,
         baseConditions: any[],
     ): Promise<Question[]> {
-        const hard = await this.getHardQuestions(count * 0.4, baseConditions);
-        const weak = await this.weakAreaWeightedStrategy(userId, count * 0.4, prefs, baseConditions);
-        const fresh = await this.weightedBalancedStrategy(userId, count * 0.2, prefs, baseConditions);
-        const mixed = [...hard, ...weak, ...fresh];
-        return this.shuffleArray(mixed).slice(0, count);
-    }
+        const excluded =
+            prefs.excludedSubjectIds.length > 0 ? prefs.excludedSubjectIds : ['00000000-0000-0000-0000-000000000000'];
 
-    private async getHardQuestions(limit: number, baseConditions: any[]): Promise<Question[]> {
-        const result = await this.db
-            .select({ question: questions })
-            .from(questions)
-            .where(and(gte(questions.difficulty, 4), ...baseConditions))
-            .orderBy(sql`RANDOM()`)
-            .limit(limit);
-        return result.map((r) => r.question);
-    }
+        const candidates = await this.fetchCandidateQuestionsWithMetadata(
+            userId,
+            baseConditions,
+            excluded,
+            { minDifficulty: 4, limit: count * 5 },
+        );
 
-    private shuffleWeighted<T>(items: T[], take: number): T[] {
-        const result: T[] = [];
-        const copy = [...items];
-        while (result.length < take && copy.length > 0) {
-            const idx = Math.floor(Math.random() ** 1.5 * copy.length);
-            result.push(copy[idx]);
-            copy.splice(idx, 1);
-        }
-        return result;
-    }
-
-    private shuffleArray<T>(array: T[]): T[] {
-        const arr = [...array];
-        for (let i = arr.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [arr[i], arr[j]] = [arr[j], arr[i]];
-        }
-        return arr;
+        return this.weightedSample(candidates, count, this.computeWeight);
     }
 }
