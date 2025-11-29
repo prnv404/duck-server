@@ -1,8 +1,9 @@
 import { Module } from '@nestjs/common';
 import { CurriculumService } from './curriculum.service';
-import { CurriculumResolver } from './curriculum.resolver';
+import { CurriculumController } from './curriculum.controller';
 
 @Module({
-    providers: [CurriculumService, CurriculumResolver],
+    controllers: [CurriculumController],
+    providers: [CurriculumService],
 })
-export class TopicModule {}
+export class CurriculumModule { }

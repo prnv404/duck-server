@@ -1,22 +1,16 @@
 // src/app.module.ts
 import { Module, ValidationPipe } from '@nestjs/common';
 import { AppService } from './app.service';
-import { GraphqlConfigModule } from './graphql.module';
 import { DatabaseModule } from './database/db.module';
-import { ComplexityPlugin } from './common/graphql/plugins/complexity.plugin';
-import { LoggingPlugin } from './common/graphql/plugins/logging.plugin';
-import { GraphqlExceptionFilter } from './common/filters/graphql-exception.filter';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { AppConfigModule } from './config/config.module';
-import { RabbitMQModule } from './common/queue/rabbitmq.module';
-import { TerminusModule } from '@nestjs/terminus';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import { DataLoaderInterceptor } from './common/dataloader/dataloader.interceptor';
 import { UserModule } from '@/modules/user/user.module';
 import { AuthModule } from '@/modules/auth/auth.module';
-import { TopicModule } from '@/modules/curriculum/curriculum.module';
+import { CurriculumModule } from '@/modules/curriculum/curriculum.module';
 import { QuestionModule } from '@/modules/question/question.module';
-import { QuizModule } from '@/modules/practice/practice.module';
+import { PracticeModule } from '@/modules/practice/practice.module';
 import { GamificationModule } from '@/modules/gamification/gamification.module';
 import { AppController } from './app.controller';
 
@@ -24,27 +18,29 @@ import { AppController } from './app.controller';
     imports: [
         AppConfigModule,
         DatabaseModule,
-        TerminusModule,
-        GraphqlConfigModule,
+        ThrottlerModule.forRoot([
+            {
+                ttl: 60000, // 60 seconds
+                limit: 100, // 100 requests per minute (global default)
+            },
+        ]),
         UserModule,
         AuthModule,
-        TopicModule,
+        CurriculumModule,
         QuestionModule,
-        QuizModule,
+        PracticeModule,
         GamificationModule,
     ],
     controllers: [AppController],
     providers: [
         AppService,
-        ComplexityPlugin,
-        LoggingPlugin,
         {
             provide: APP_FILTER,
-            useClass: GraphqlExceptionFilter,
+            useClass: HttpExceptionFilter,
         },
         {
-            provide: APP_INTERCEPTOR,
-            useClass: DataLoaderInterceptor,
+            provide: APP_GUARD,
+            useClass: ThrottlerGuard,
         },
         {
             provide: APP_PIPE,
@@ -52,4 +48,5 @@ import { AppController } from './app.controller';
         },
     ],
 })
-export class AppModule {}
+export class AppModule { }
+

@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
 import { GamificationService } from './gamification.service';
-import { GamificationResolver } from './gamification.resolver';
+import { GamificationController } from './gamification.controller';
 
 @Module({
-    providers: [GamificationService, GamificationResolver],
+    controllers: [GamificationController],
+    providers: [GamificationService],
 })
-export class GamificationModule {}
+export class GamificationModule { }
+

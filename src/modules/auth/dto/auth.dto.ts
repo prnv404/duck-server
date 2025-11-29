@@ -1,45 +1,65 @@
-import { Field, InputType, ObjectType } from '@nestjs/graphql';
-import { IsEmail, IsNotEmpty, IsString, MinLength, IsOptional } from 'class-validator';
-import { User } from '@/modules/user/models/user.model';
+import { IsNotEmpty, IsString, IsMobilePhone, Length } from 'class-validator';
+import { Transform } from 'class-transformer';
 
-@ObjectType()
-export class AuthResponse {
-    @Field(() => User)
-    user: User;
-
-    @Field()
-    accessToken: string;
-
-    @Field()
-    refreshToken: string;
-}
-
-@InputType()
-export class RequestOtpInput {
-    @Field()
+/**
+ * DTO for requesting OTP
+ */
+export class RequestOtpDto {
     @IsNotEmpty()
     @IsString()
+    @Transform(({ value }) => value?.replace(/\s+/g, ''))
+    @IsMobilePhone(undefined, {}, { message: 'Invalid phone number format' })
     phone: string;
 }
 
-@InputType()
-export class VerifyOtpInput {
-    @Field()
+/**
+ * DTO for verifying OTP
+ */
+export class VerifyOtpDto {
     @IsNotEmpty()
     @IsString()
+    @Transform(({ value }) => value?.replace(/\s+/g, ''))
+    @IsMobilePhone(undefined, {}, { message: 'Invalid phone number format' })
     phone: string;
 
-    @Field()
     @IsNotEmpty()
     @IsString()
+    @Length(6, 6, { message: 'OTP must be 6 digits' })
     otp: string;
 }
 
-@ObjectType()
-export class RefreshTokenResponse {
-    @Field()
-    accessToken: string;
+/**
+ * DTO for refresh token request
+ */
+export class RefreshTokenDto {
+    @IsNotEmpty()
+    @IsString()
+    refreshToken: string;
+}
 
-    @Field()
+/**
+ * Response DTO for authentication endpoints
+ */
+export interface AuthResponseDto {
+    user: {
+        id: string;
+        username: string;
+        phone: string;
+        fullName?: string | null;
+        avatarUrl?: string | null;
+        targetExam?: string | null;
+        notificationEnabled: boolean;
+        createdAt: Date;
+        lastActiveAt?: Date | null;
+    };
+    accessToken: string;
+    refreshToken: string;
+}
+
+/**
+ * Response DTO for token refresh
+ */
+export interface RefreshTokenResponseDto {
+    accessToken: string;
     refreshToken: string;
 }

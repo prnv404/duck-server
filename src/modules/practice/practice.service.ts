@@ -21,7 +21,6 @@ import {
 import { QuestionGenerationService, QuestionWithAnswers } from '@/modules/question/question.service';
 import { BadRequestError, NotFoundError } from '@/common/exceptions';
 import { CreateSessionInput } from './practice.dto';
-import { QuestionModel } from '../question/models/question.model';
 
 export interface SubmitAnswerDto {
     sessionId: string;
@@ -52,7 +51,7 @@ export class QuizSessionService {
         return session;
     }
 
-    async createPracticeSession(dto: CreateSessionInput): Promise<PracticeSession & { questions: QuestionModel[] }> {
+    async createPracticeSession(dto: CreateSessionInput): Promise<PracticeSession & { questions: Question[] }> {
         const { userId, type, totalQuestions = 10, topicId, subjectIds } = dto;
 
         console.log(dto);
@@ -74,7 +73,6 @@ export class QuizSessionService {
             subjectIds,
         });
 
-        console.log(generatedQuestions);
 
         if (generatedQuestions.length === 0) {
             throw new BadRequestError('Not enough questions available for this mode');

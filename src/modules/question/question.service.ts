@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { and, eq, notExists, gt, inArray, notInArray, sql, desc, asc, gte } from 'drizzle-orm';
 import * as Database from '@/database';
 import {
@@ -64,6 +64,10 @@ export class QuestionGenerationService {
                 break;
             default:
                 questions = await this.weightedBalancedStrategy(userId, count, preferences, baseConditions);
+        }
+
+        if (questions.length < 0) {
+            throw new NotFoundException(`Not enough questions available for this mode: ${type || 'default'}. Found only ${questions.length} out of ${count} required.`);
         }
 
         // Fetch answer options for the selected questions
@@ -145,7 +149,7 @@ export class QuestionGenerationService {
                     ),
             ),
         ];
-        // Optional: Avoid recently seen questions (even if wrong)
+        // Optional: Avoid recently seen questions that were correct (allow recent incorrect for retry)
         if (prefs.avoidRecentQuestionsDays > 0) {
             const cutoff = new Date();
             cutoff.setDate(cutoff.getDate() - prefs.avoidRecentQuestionsDays);
@@ -159,6 +163,7 @@ export class QuestionGenerationService {
                                 eq(userQuestionHistory.userId, userId),
                                 eq(userQuestionHistory.questionId, questions.id),
                                 gte(userQuestionHistory.lastSeenAt, cutoff),
+                                gt(userQuestionHistory.timesCorrect, 0),
                             ),
                         ),
                 ),

@@ -13,6 +13,7 @@ export enum PerformanceCategory {
 }
 
 export interface SubjectAccuracy {
+    subjectId: string;
     subjectName: string;
     accuracy: number; // Percentage (0-100)
     performance: PerformanceCategory;
@@ -61,44 +62,46 @@ export class CurriculumService {
         return ServiceHelper.ensureExists(result, id, 'Topic');
     }
 
-    async getSubjectWiseAccuracy(userId: string): Promise<SubjectAccuracy[]> {
-        // Build base WHERE conditions
-        const baseWhere = and(eq(userTopicProgress.userId, userId), sql`${userTopicProgress.questionsAttempted} > 0`);
+   async getSubjectWiseAccuracy(userId: string): Promise<SubjectAccuracy[]> {
+    // Build base WHERE conditions
+    const baseWhere = and(eq(userTopicProgress.userId, userId), sql`${userTopicProgress.questionsAttempted} > 0`);
 
-        let fullWhere = baseWhere;
+    let fullWhere = baseWhere;
 
-        const query = this.db
-            .select({
-                subjectName: subjects.name,
-                accuracy: sql<number>`AVG(${userTopicProgress.accuracy} * 100)`.as('accuracy'),
-            })
-            .from(userTopicProgress)
-            .innerJoin(topics, eq(userTopicProgress.topicId, topics.id))
-            .innerJoin(subjects, eq(topics.subjectId, subjects.id))
-            .where(fullWhere)
-            .groupBy(subjects.id, subjects.name)
-            .orderBy(sql`accuracy DESC`);
+    const query = this.db
+        .select({
+            subjectId: subjects.id,
+            subjectName: subjects.name,
+            accuracy: sql<number>`AVG(${userTopicProgress.accuracy})`.as('accuracy'),
+        })
+        .from(userTopicProgress)
+        .innerJoin(topics, eq(userTopicProgress.topicId, topics.id))
+        .innerJoin(subjects, eq(topics.subjectId, subjects.id))
+        .where(fullWhere)
+        .groupBy(subjects.id, subjects.name)
+        .orderBy(sql`accuracy DESC`);
 
-        const results = await query;
+    const results = await query;
 
-        return results.map((row) => {
-            const accuracy = Math.round(row.accuracy * 100) / 100; // Round to 2 decimals
-            let performance: PerformanceCategory;
+    return results.map((row) => {
+        const accuracy = Math.round(row.accuracy * 100) / 100; // Round to 2 decimals
+        let performance: PerformanceCategory;
 
-            if (accuracy < 50) {
-                performance = PerformanceCategory.WEAK;
-            } else if (accuracy < 70) {
-                performance = PerformanceCategory.AVERAGE;
-            } else {
-                performance = PerformanceCategory.STRONG;
-            }
+        if (accuracy < 50) {
+            performance = PerformanceCategory.WEAK;
+        } else if (accuracy < 70) {
+            performance = PerformanceCategory.AVERAGE;
+        } else {
+            performance = PerformanceCategory.STRONG;
+        }
 
-            return {
-                subjectName: row.subjectName,
-                accuracy,
-                performance,
-            };
-        });
-    }
+        return {
+            subjectId: row.subjectId,
+            subjectName: row.subjectName,
+            accuracy,
+            performance,
+        };
+    });
+}
    
 }

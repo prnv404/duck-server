@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { EnvService } from '@/config/config.service';
 import { UserService } from '@/modules/user/user.service';
-import { AuthResponse, RefreshTokenResponse, RequestOtpInput, VerifyOtpInput } from './dto/auth.dto';
+import { AuthResponseDto, RefreshTokenResponseDto, RequestOtpDto, VerifyOtpDto } from './dto/auth.dto';
 import { RedisService, RedisKeys } from '@/database/redis';
 import { UnauthorizedError } from '@/common/exceptions';
 
@@ -16,7 +16,7 @@ export class AuthService {
         private readonly redisService: RedisService,
     ) {}
 
-    async requestOtp(input: RequestOtpInput): Promise<boolean> {
+    async requestOtp(input: RequestOtpDto): Promise<boolean> {
         const { phone } = input;
         // Generate 6-digit OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -30,7 +30,7 @@ export class AuthService {
         return true;
     }
 
-    async verifyOtp(input: VerifyOtpInput): Promise<AuthResponse> {
+    async verifyOtp(input: VerifyOtpDto): Promise<AuthResponseDto> {
         const { phone, otp } = input;
         const redis = this.redisService.getClient();
 
@@ -72,7 +72,7 @@ export class AuthService {
         return true;
     }
 
-    async refreshTokens(userId: string, rt: string): Promise<RefreshTokenResponse> {
+    async refreshTokens(userId: string, rt: string): Promise<RefreshTokenResponseDto> {
         const redis = this.redisService.getClient();
         const storedRt = await redis.get<string>(RedisKeys.refreshToken(userId));
 
