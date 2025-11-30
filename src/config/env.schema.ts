@@ -25,13 +25,13 @@ export const envSchema = z.object({
     UPSTASH_REDIS_REST_URL: z.string().url(),
     UPSTASH_REDIS_REST_TOKEN: z.string(),
 
-    RABBITMQ_URI: z.string().url(),
-
-    CLERK_SECRET_KEY: z.string(),
-
-    CLERK_WEBHOOK_SIGNING_SECRET: z.string(),
-
     APP_URL: z.string().url(),
+
+    GEMINI_API_KEY: z.string(),
+
+    STORAGE_BUCKET: z.string(),
+    SUPABASE_URL: z.string().url(),
+    SUPABASE_KEY: z.string(),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

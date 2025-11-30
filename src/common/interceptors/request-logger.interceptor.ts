@@ -20,9 +20,7 @@ export class RequestLoggerInterceptor implements NestInterceptor {
         const { method, originalUrl: url } = request;
         const requestBody = this.sanitizeBody(request.body);
 
-        this.logger.log(
-            `Incoming Request: ${method} ${url} | body=${this.truncate(JSON.stringify(requestBody))}`,
-        );
+        this.logger.log(`Incoming Request: ${method} ${url} | body=${this.truncate(JSON.stringify(requestBody))}`);
 
         const startTime = Date.now();
 
@@ -32,9 +30,7 @@ export class RequestLoggerInterceptor implements NestInterceptor {
                 const statusCode = response.statusCode;
                 const responseBody = this.truncate(JSON.stringify(data));
 
-                this.logger.log(
-                    `Outgoing Response: ${method} ${url} ${statusCode} (${duration}ms) | body=${responseBody}`,
-                );
+                this.logger.log(`Outgoing Response: ${method} ${url} ${statusCode} (${duration}ms) | body=${responseBody}`);
             }),
         );
     }
@@ -42,7 +38,7 @@ export class RequestLoggerInterceptor implements NestInterceptor {
     private truncate(value: string): string {
         if (!value) return value;
         if (value.length <= this.maxLogLength) return value;
-        return value.substring(0, this.maxLogLength) + '...<truncated>'; 
+        return value.substring(0, this.maxLogLength) + '...<truncated>';
     }
 
     private sanitizeBody(body: any): any {

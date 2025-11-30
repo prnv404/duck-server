@@ -6,8 +6,8 @@ import { QuestionModule } from '@/modules/question/question.module';
 import { GamificationModule } from '@/modules/gamification/gamification.module';
 
 @Module({
-    imports: [DatabaseModule, QuestionModule,GamificationModule],
+    imports: [DatabaseModule, QuestionModule, GamificationModule],
     controllers: [PracticeController],
     providers: [QuizSessionService],
 })
-export class PracticeModule { }
+export class PracticeModule {}

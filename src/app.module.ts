@@ -12,6 +12,7 @@ import { CurriculumModule } from '@/modules/curriculum/curriculum.module';
 import { QuestionModule } from '@/modules/question/question.module';
 import { PracticeModule } from '@/modules/practice/practice.module';
 import { GamificationModule } from '@/modules/gamification/gamification.module';
+import { IntegrationModule } from './integrations/integration.module';
 import { AppController } from './app.controller';
 import { RequestLoggerInterceptor } from './common/interceptors/request-logger.interceptor';
 
@@ -25,6 +26,7 @@ import { RequestLoggerInterceptor } from './common/interceptors/request-logger.i
                 limit: 100, // 100 requests per minute (global default)
             },
         ]),
+        IntegrationModule,
         UserModule,
         AuthModule,
         CurriculumModule,
@@ -53,4 +55,4 @@ import { RequestLoggerInterceptor } from './common/interceptors/request-logger.i
         },
     ],
 })
-export class AppModule { }
+export class AppModule {}

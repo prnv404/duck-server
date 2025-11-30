@@ -5,7 +5,6 @@ import { GamificationController } from './gamification.controller';
 @Module({
     controllers: [GamificationController],
     providers: [GamificationService],
-    exports: [GamificationService]
+    exports: [GamificationService],
 })
-export class GamificationModule { }
-
+export class GamificationModule {}

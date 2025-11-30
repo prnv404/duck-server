@@ -5,6 +5,8 @@ import { relations } from 'drizzle-orm';
 import { answerOptions } from './answer.options';
 import { sessionAnswers } from './session.answers';
 import { userQuestionHistory } from './question.history';
+import { serial } from 'drizzle-orm/pg-core';
+import { json } from 'drizzle-orm/pg-core';
 
 export const questions = pgTable(
     'questions',
@@ -13,10 +15,13 @@ export const questions = pgTable(
             .primaryKey()
             .default(sql`gen_random_uuid()`),
 
+        qNo: serial('qNo').notNull(),
         // Foreign Key Reference to topics table
         topicId: uuid('topic_id').references(() => topics.id, { onDelete: 'set null' }), // Using SET NULL since no ON DELETE was specified in SQL
 
         questionText: text('question_text').notNull(),
+
+        audioUrl: text('audio_url'),
 
         explanation: text('explanation'),
 
@@ -24,7 +29,12 @@ export const questions = pgTable(
             .default(1)
             .notNull(),
 
-        points: integer('points').default(10).notNull(),
+        points: integer('points').default(1).notNull(),
+
+        upvotes: integer('upvotes').default(0).notNull(),
+
+        downvotes: integer('downvotes').default(0).notNull(),
+
 
         // Analytics
         timesAttempted: integer('times_attempted').default(0).notNull(),

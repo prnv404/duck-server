@@ -1,13 +1,19 @@
 import { Controller, Get, Patch, Delete, Body, UseGuards, Req, HttpCode, HttpStatus } from '@nestjs/common';
 import { UserService } from './user.service';
-import { UpdateUserDto, UpdateUserStatsDto, UserResponseDto, UserStatsResponseDto, StreakCalendarResponseDto } from './dto/rest-user.dto';
+import {
+    UpdateUserDto,
+    UpdateUserStatsDto,
+    UserResponseDto,
+    UserStatsResponseDto,
+    StreakCalendarResponseDto,
+} from './dto/rest-user.dto';
 import { JwtRestAuthGuard } from '@/common/guards/jwt-rest.guard';
 import { Throttle } from '@nestjs/throttler';
 
 @Controller('users')
 @UseGuards(JwtRestAuthGuard)
 export class UserController {
-    constructor(private readonly userService: UserService) { }
+    constructor(private readonly userService: UserService) {}
 
     /**
      * Get current user profile

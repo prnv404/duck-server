@@ -1,11 +1,12 @@
 import { Controller, Get } from '@nestjs/common';
+import { AppService } from './app.service';
 
 @Controller()
 export class AppController {
-    constructor() {}
+    constructor(private appService: AppService) {}
 
     @Get()
-    getHello(): string {
-        return 'Hello World!';
+    async getHello() {
+        return await this.appService.getHello();
     }
 }

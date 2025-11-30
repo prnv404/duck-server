@@ -67,7 +67,9 @@ export class QuestionGenerationService {
         }
 
         if (questions.length < 0) {
-            throw new NotFoundException(`Not enough questions available for this mode: ${type || 'default'}. Found only ${questions.length} out of ${count} required.`);
+            throw new NotFoundException(
+                `Not enough questions available for this mode: ${type || 'default'}. Found only ${questions.length} out of ${count} required.`,
+            );
         }
 
         // Fetch answer options for the selected questions
@@ -226,11 +228,7 @@ export class QuestionGenerationService {
         return (q.topicWeight ?? 10) * (q.subjectWeight ?? 10);
     }
 
-    private weightedSample<T extends QuestionWithMetadata>(
-        items: T[],
-        k: number,
-        getWeight: (item: T) => number,
-    ): T[] {
+    private weightedSample<T extends QuestionWithMetadata>(items: T[], k: number, getWeight: (item: T) => number): T[] {
         if (k >= items.length) {
             return [...items];
         }
@@ -276,12 +274,7 @@ export class QuestionGenerationService {
         const excluded =
             prefs.excludedSubjectIds.length > 0 ? prefs.excludedSubjectIds : ['00000000-0000-0000-0000-000000000000'];
 
-        const candidates = await this.fetchCandidateQuestionsWithMetadata(
-            userId,
-            baseConditions,
-            excluded,
-            { limit: count * 5 },
-        );
+        const candidates = await this.fetchCandidateQuestionsWithMetadata(userId, baseConditions, excluded, { limit: count * 5 });
 
         return this.weightedSample(candidates, count, this.computeWeight);
     }
@@ -318,12 +311,10 @@ export class QuestionGenerationService {
         const excluded =
             prefs.excludedSubjectIds.length > 0 ? prefs.excludedSubjectIds : ['00000000-0000-0000-0000-000000000000'];
 
-        const candidates = await this.fetchCandidateQuestionsWithMetadata(
-            userId,
-            baseConditions,
-            excluded,
-            { topicIds, limit: count * 5 },
-        );
+        const candidates = await this.fetchCandidateQuestionsWithMetadata(userId, baseConditions, excluded, {
+            topicIds,
+            limit: count * 5,
+        });
 
         return this.weightedSample(candidates, count, this.computeWeight);
     }
@@ -350,12 +341,7 @@ export class QuestionGenerationService {
         const excluded =
             prefs.excludedSubjectIds.length > 0 ? prefs.excludedSubjectIds : ['00000000-0000-0000-0000-000000000000'];
 
-        const candidates = await this.fetchCandidateQuestionsWithMetadata(
-            userId,
-            baseConditions,
-            excluded,
-            { limit: count * 4 },
-        );
+        const candidates = await this.fetchCandidateQuestionsWithMetadata(userId, baseConditions, excluded, { limit: count * 4 });
 
         const getAdaptiveWeight = (q: QuestionWithMetadata) =>
             this.computeWeight(q) * Math.pow(1 + Math.abs(q.difficulty - targetDiff), -2);
@@ -377,12 +363,10 @@ export class QuestionGenerationService {
         const excluded =
             prefs.excludedSubjectIds.length > 0 ? prefs.excludedSubjectIds : ['00000000-0000-0000-0000-000000000000'];
 
-        const candidates = await this.fetchCandidateQuestionsWithMetadata(
-            userId,
-            baseConditions,
-            excluded,
-            { subjectIds, limit: count * 5 },
-        );
+        const candidates = await this.fetchCandidateQuestionsWithMetadata(userId, baseConditions, excluded, {
+            subjectIds,
+            limit: count * 5,
+        });
 
         return this.weightedSample(candidates, count, this.computeWeight);
     }
@@ -396,12 +380,10 @@ export class QuestionGenerationService {
         const excluded =
             prefs.excludedSubjectIds.length > 0 ? prefs.excludedSubjectIds : ['00000000-0000-0000-0000-000000000000'];
 
-        const candidates = await this.fetchCandidateQuestionsWithMetadata(
-            userId,
-            baseConditions,
-            excluded,
-            { minDifficulty: 4, limit: count * 5 },
-        );
+        const candidates = await this.fetchCandidateQuestionsWithMetadata(userId, baseConditions, excluded, {
+            minDifficulty: 4,
+            limit: count * 5,
+        });
 
         return this.weightedSample(candidates, count, this.computeWeight);
     }

@@ -13,7 +13,7 @@ export class GamificationController {
     constructor(
         private readonly gamificationService: GamificationService,
         @Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB,
-    ) { }
+    ) {}
 
     /**
      * Get user's badges
@@ -54,10 +54,7 @@ export class GamificationController {
     async getAllBadges(@Req() req: any): Promise<BadgeResponseDto[]> {
         const allBadges = await this.db.select().from(badges);
         const unlockedBadgeIds = (
-            await this.db
-                .select({ badgeId: userBadges.badgeId })
-                .from(userBadges)
-                .where(eq(userBadges.userId, req.user.id))
+            await this.db.select({ badgeId: userBadges.badgeId }).from(userBadges).where(eq(userBadges.userId, req.user.id))
         ).map((b) => b.badgeId);
 
         return allBadges.map((badge) => ({

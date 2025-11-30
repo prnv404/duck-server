@@ -114,7 +114,7 @@ export interface UserStatsResponseDto {
     userId: string;
     totalXp: number;
     level: number;
-    energy:number;
+    energy: number;
     xpToNextLevel: number;
     currentStreak: number;
     longestStreak: number;
@@ -140,4 +140,3 @@ export interface StreakCalendarResponseDto {
     xpEarned: number;
     streakDay: number;
 }
-

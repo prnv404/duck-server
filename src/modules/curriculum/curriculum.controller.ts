@@ -5,7 +5,7 @@ import { JwtRestAuthGuard } from '@/common/guards/jwt-rest.guard';
 
 @Controller('curriculum')
 export class CurriculumController {
-    constructor(private readonly curriculumService: CurriculumService) { }
+    constructor(private readonly curriculumService: CurriculumService) {}
 
     /**
      * Get all subjects

@@ -6,7 +6,7 @@ import { Throttle } from '@nestjs/throttler';
 
 @Controller('auth')
 export class AuthController {
-    constructor(private readonly authService: AuthService) { }
+    constructor(private readonly authService: AuthService) {}
 
     /**
      * Request OTP for phone number

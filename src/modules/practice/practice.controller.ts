@@ -12,7 +12,7 @@ import { JwtRestAuthGuard } from '@/common/guards/jwt-rest.guard';
 @Controller('practice')
 @UseGuards(JwtRestAuthGuard)
 export class PracticeController {
-    constructor(private readonly practiceService: QuizSessionService) { }
+    constructor(private readonly practiceService: QuizSessionService) {}
 
     /**
      * Create a new practice session
@@ -34,13 +34,14 @@ export class PracticeController {
             difficulty: q.difficulty,
             isActive: q.isActive,
             createdAt: q.createdAt,
-            answerOptions: (q as any).answerOptions?.map((opt: any) => ({
-                id: opt.id,
-                questionId: opt.questionId,
-                optionText: opt.optionText,
-                isCorrect: opt.isCorrect,
-                displayOrder: opt.displayOrder,
-            })) || [],
+            answerOptions:
+                (q as any).answerOptions?.map((opt: any) => ({
+                    id: opt.id,
+                    questionId: opt.questionId,
+                    optionText: opt.optionText,
+                    isCorrect: opt.isCorrect,
+                    displayOrder: opt.displayOrder,
+                })) || [],
         }));
 
         return {
@@ -123,10 +124,7 @@ export class PracticeController {
      */
     @Post('sessions/:id/answers')
     @HttpCode(HttpStatus.CREATED)
-    async submitAnswer(
-        @Param('id') sessionId: string,
-        @Body() dto: SubmitAnswerDto,
-    ): Promise<SessionAnswerResponseDto> {
+    async submitAnswer(@Param('id') sessionId: string, @Body() dto: SubmitAnswerDto): Promise<SessionAnswerResponseDto> {
         const answer = await this.practiceService.submitAnswer({
             sessionId,
             questionId: dto.questionId,

@@ -9,7 +9,7 @@ async function bootstrap() {
 
     // Enable CORS
     app.enableCors({
-        origin: true, 
+        origin: true,
         credentials: true,
     });
 
@@ -23,18 +23,18 @@ async function bootstrap() {
     // Global validation pipe
     app.useGlobalPipes(
         new ValidationPipe({
-            whitelist: true, 
-            forbidNonWhitelisted: false, 
-            transform: true, 
+            whitelist: true,
+            forbidNonWhitelisted: false,
+            transform: true,
             transformOptions: {
-                enableImplicitConversion: true, 
+                enableImplicitConversion: true,
             },
         }),
     );
 
     // Set global prefix for REST API
     app.setGlobalPrefix('api/v1', {
-        exclude: ['/'], 
+        exclude: ['/'],
     });
 
     await app.listen(process.env.PORT ?? 3000);

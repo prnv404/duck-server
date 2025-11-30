@@ -6,4 +6,4 @@ import { CurriculumController } from './curriculum.controller';
     controllers: [CurriculumController],
     providers: [CurriculumService],
 })
-export class CurriculumModule { }
+export class CurriculumModule {}

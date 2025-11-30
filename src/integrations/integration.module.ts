@@ -1,33 +1,39 @@
-/**
- * Integration Module
- * Main module for the integration system
- */
-
-import { Module, Global } from '@nestjs/common';
-import { IntegrationRegistryService } from './integration-registry.service';
-
-// Import example integrations (uncomment when ready to use)
-// import { StripePaymentIntegration } from './examples/stripe-payment.integration';
-// import { SlackNotificationIntegration } from './examples/slack-notification.integration';
-// import { DatadogTelemetryIntegration } from './examples/datadog-telemetry.integration';
+import { Global, Module } from '@nestjs/common';
+import { IntegrationRegistry } from './core/integration.registry';
+import { StorageIntegration } from './providers/storage/storage.integration';
+import { GeminiIntegration } from './providers/gemini/gemini.integration';
+import { EnvService } from '@/config/config.service';
+import { ConfigModule } from '@nestjs/config';
 
 @Global()
 @Module({
-    providers: [
-        IntegrationRegistryService,
-        // Register your integrations here
-        // {
-        //     provide: 'INTEGRATIONS',
-        //     useFactory: (registry: IntegrationRegistryService) => {
-        //         // Auto-register integrations on startup
-        //         registry.register(new StripePaymentIntegration());
-        //         registry.register(new SlackNotificationIntegration());
-        //         registry.register(new DatadogTelemetryIntegration());
-        //         return registry;
-        //     },
-        //     inject: [IntegrationRegistryService],
-        // },
-    ],
-    exports: [IntegrationRegistryService],
+    imports: [ConfigModule],
+    providers: [IntegrationRegistry, EnvService],
+    exports: [IntegrationRegistry],
 })
-export class IntegrationModule {}
+export class IntegrationModule {
+    constructor(
+        private registry: IntegrationRegistry,
+        private config: EnvService,
+    ) {}
+
+    async onModuleInit() {
+        await this.registry.register(
+            new StorageIntegration({
+                bucket: this.config.get('STORAGE_BUCKET'),
+                supabaseUrl: this.config.get('SUPABASE_URL'),
+                supabaseKey: this.config.get('SUPABASE_KEY'),
+            }),
+            {
+                autoInitialize: true,
+                autoConnect: true,
+                nameOverride: 'storage',
+            },
+        );
+        await this.registry.register(new GeminiIntegration(), {
+            autoInitialize: true,
+            autoConnect: true,
+            nameOverride: 'gemini',
+        });
+    }
+}
