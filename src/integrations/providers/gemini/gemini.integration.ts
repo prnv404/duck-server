@@ -178,7 +178,7 @@ export class GeminiIntegration implements BaseIntegration<GeminiIntegrationConfi
                     speechConfig: {
                         voiceConfig: {
                             prebuiltVoiceConfig: {
-                                voiceName: input.voice || 'Kore',
+                                voiceName: 'Rasalgethi',
                             },
                         },
                     },

@@ -20,7 +20,9 @@ export class QuestionGenerationProcessor {
         @Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB,
     ) { }
 
-    @Process()
+    @Process({
+        concurrency:1
+    })
     async handleQuestionGeneration(job: Job<GenerateQuestionsJob>) {
         this.logger.log(`Processing question generation job ${job.id}`);
 
