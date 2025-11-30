@@ -35,7 +35,6 @@ export const questions = pgTable(
 
         downvotes: integer('downvotes').default(0).notNull(),
 
-
         // Analytics
         timesAttempted: integer('times_attempted').default(0).notNull(),
 

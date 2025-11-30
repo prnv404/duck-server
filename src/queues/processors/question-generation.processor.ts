@@ -5,10 +5,9 @@ import { InjectQueue } from '@nestjs/bull';
 import type { Queue } from 'bull';
 import { Inject } from '@nestjs/common';
 import * as Database from '@/database';
-import { questionQueue as questionQueueSchema } from '@/database/schema';
+import { questionQueue as questionQueueSchema, topics } from '@/database/schema';
 import { GeminiIntegration, IntegrationRegistry } from '@/integrations';
 import { GenerateQuestionsJob } from '../job.types';
-import { AUDIO_PROCESSING_QUEUE } from '../queue.module';
 import { eq } from 'drizzle-orm';
 
 @Processor('question-generation')
@@ -19,7 +18,6 @@ export class QuestionGenerationProcessor {
     constructor(
         private registry: IntegrationRegistry,
         @Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB,
-        @InjectQueue(AUDIO_PROCESSING_QUEUE) private audioQueue: Queue,
     ) { }
 
     @Process()
@@ -61,24 +59,15 @@ export class QuestionGenerationProcessor {
                         is_rejected: false,
                         topicId: topicId,
                         jobId: job.id.toString(),
-                        status: 'pending_audio',
+                        status: 'pending', // Waiting for approval
                         attemptCount: 0,
                     })
                     .returning();
 
                 queueIds.push(queueItem.id);
 
-                // Queue audio processing job
-                await this.audioQueue.add(
-                    {
-                        queueId: queueItem.id,
-                        questionText: question.questionText,
-                    },
-                    {
-                        priority: 1,
-                        removeOnComplete: true,
-                    },
-                );
+                // Update progress
+                await job.progress(((i + 1) / generatedQuestions.length) * 100);
 
                 // Update progress
                 await job.progress(((i + 1) / generatedQuestions.length) * 100);

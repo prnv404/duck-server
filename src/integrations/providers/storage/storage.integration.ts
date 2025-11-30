@@ -30,7 +30,7 @@ export class StorageIntegration implements BaseIntegration<StorageIntegrationCon
     }
 
     get enabled(): boolean {
-        return true
+        return true;
     }
 
     async initialize(config: StorageIntegrationConfig): Promise<void> {

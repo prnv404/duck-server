@@ -2,6 +2,7 @@ import { pgTable, uuid, text, integer, timestamp, index, boolean, json, pgEnum }
 import { sql } from 'drizzle-orm';
 import { relations } from 'drizzle-orm';
 import { topics } from './curriculum';
+import { questions } from './questions';
 
 // Job status enum for BullMQ tracking
 export const jobStatusEnum = pgEnum('job_status', [
@@ -37,6 +38,8 @@ export const questionQueue = pgTable(
         status: jobStatusEnum('status').default('pending'),
         errorMessage: text('error_message'),
         attemptCount: integer('attempt_count').default(0).notNull(),
+
+        questionId: uuid('question_id').references(() => questions.id, { onDelete: 'set null' }),
 
         createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
     },

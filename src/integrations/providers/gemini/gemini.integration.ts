@@ -163,12 +163,7 @@ export class GeminiIntegration implements BaseIntegration<GeminiIntegrationConfi
     /**
      * Generate Text-to-Speech
      */
-    async generateTts(input: {
-        prompt: string;
-        speed: number;
-        voice: string;
-        model?: string;
-    }): Promise<Buffer> {
+    async generateTts(input: { prompt: string; speed: number; voice: string; model?: string }): Promise<Buffer> {
         if (!this._connected) throw new Error('Gemini integration not connected');
 
         const modelName = input.model || 'gemini-2.5-flash-preview-tts';
@@ -209,14 +204,14 @@ export class GeminiIntegration implements BaseIntegration<GeminiIntegrationConfi
         text: string;
         model?: string;
         taskType?:
-        | 'SEMANTIC_SIMILARITY'
-        | 'CLASSIFICATION'
-        | 'CLUSTERING'
-        | 'RETRIEVAL_DOCUMENT'
-        | 'RETRIEVAL_QUERY'
-        | 'CODE_RETRIEVAL_QUERY'
-        | 'QUESTION_ANSWERING'
-        | 'FACT_VERIFICATION';
+            | 'SEMANTIC_SIMILARITY'
+            | 'CLASSIFICATION'
+            | 'CLUSTERING'
+            | 'RETRIEVAL_DOCUMENT'
+            | 'RETRIEVAL_QUERY'
+            | 'CODE_RETRIEVAL_QUERY'
+            | 'QUESTION_ANSWERING'
+            | 'FACT_VERIFICATION';
         outputDimensionality?: number;
     }): Promise<number[]> {
         if (!this._connected) throw new Error('Gemini integration not connected');

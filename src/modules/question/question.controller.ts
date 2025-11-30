@@ -1,24 +1,34 @@
-import { Controller, Post, Body, Param, ParseUUIDPipe, Get } from '@nestjs/common';
+import { Controller, Post, Body, Param, ParseUUIDPipe, Get, Inject, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import type { Queue } from 'bull';
 import { QuestionGenerationService } from './question.gen.service';
-import { GenerateQuestionDto } from './question.dto';
+import { GenerateQuestionDto, BatchApproveDto } from './question.dto';
 import { QUESTION_GENERATION_QUEUE } from '@/queues/queue.module';
 import { JobStatusResponse } from '@/queues/job.types';
+import { topics } from '@/database/schema';
+import { eq } from 'drizzle-orm';
+import * as Database from '@/database';
 
 @Controller('questions')
 export class QuestionController {
     constructor(
         private readonly questionGenService: QuestionGenerationService,
         @InjectQueue(QUESTION_GENERATION_QUEUE) private questionQueue: Queue,
+        @Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB,
     ) { }
 
     @Post('generate')
     async generateQuestions(@Body() dto: GenerateQuestionDto) {
+
+        const [topic] = await this.db.select().from(topics).where(eq(topics.id, dto.topicId));
+
+        if (!topic) {
+            throw new NotFoundException('Topic not found');
+        }
         // Add job to queue instead of processing synchronously
         const job = await this.questionQueue.add(
             {
-                prompt: dto.prompt,
+                prompt: dto.prompt + ' ' + topic.name,
                 topicId: dto.topicId,
                 model: dto.model,
                 difficulty: dto.difficulty,
@@ -60,8 +70,25 @@ export class QuestionController {
         };
     }
 
+    
+    @Post('approve/batch')
+    async batchApproveQuestions(@Body() dto: BatchApproveDto) {
+        return this.questionGenService.batchApproveQuestions(dto.queueIds);
+    }
+
+
     @Post('approve/:id')
     async approveQuestion(@Param('id', ParseUUIDPipe) id: string) {
         return this.questionGenService.approveQuestion(id);
+    }
+
+    @Post('reject/:id')
+    async rejectQuestion(@Param('id', ParseUUIDPipe) id: string) {
+        return this.questionGenService.rejectQuestion(id);
+    }
+
+    @Get('pending')
+    async getPendingQuestions() {
+        return this.questionGenService.getPendingQuestions();
     }
 }

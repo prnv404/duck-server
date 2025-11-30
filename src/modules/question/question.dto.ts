@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsNumber, Min, Max, IsUUID } from 'class-validator';
+import { IsString, IsOptional, IsNumber, Min, Max, IsUUID, IsArray } from 'class-validator';
 
 export class GenerateQuestionDto {
     @IsString()
@@ -22,4 +22,10 @@ export class GenerateQuestionDto {
     @Min(1)
     @Max(20)
     count?: number;
+}
+
+export class BatchApproveDto {
+    @IsUUID('4', { each: true, always: true })
+    @IsArray()
+    queueIds: string[];
 }

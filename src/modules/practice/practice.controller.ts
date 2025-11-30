@@ -34,6 +34,12 @@ export class PracticeController {
             difficulty: q.difficulty,
             isActive: q.isActive,
             createdAt: q.createdAt,
+            audioUrl: q.audioUrl,
+            points: q.points,
+            upvotes: q.upvotes,
+            downvotes: q.downvotes,
+            timesAttempted: q.timesAttempted,
+            timesCorrect: q.timesCorrect,
             answerOptions:
                 (q as any).answerOptions?.map((opt: any) => ({
                     id: opt.id,

@@ -3,7 +3,7 @@ import type { Job } from 'bull';
 import { Injectable, Logger } from '@nestjs/common';
 import { Inject } from '@nestjs/common';
 import * as Database from '@/database';
-import { questionQueue as questionQueueSchema } from '@/database/schema';
+import { questionQueue as questionQueueSchema, questions } from '@/database/schema';
 import { GeminiIntegration, IntegrationRegistry, StorageIntegration } from '@/integrations';
 import { ProcessAudioJob } from '../job.types';
 import { eq } from 'drizzle-orm';
@@ -22,7 +22,9 @@ export class AudioProcessingProcessor {
         @Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB,
     ) { }
 
-    @Process()
+    @Process({
+        concurrency: 1,
+    })
     async handleAudioProcessing(job: Job<ProcessAudioJob>) {
         this.logger.log(`Processing audio for queue item ${job.data.queueId}`);
 
@@ -44,12 +46,7 @@ export class AudioProcessingProcessor {
             }
 
             // Generate and upload audio
-            const audioUrl = await this.processAndUploadAudio(
-                gemini,
-                storage,
-                queueId,
-                questionText,
-            );
+            const audioUrl = await this.processAndUploadAudio(gemini, storage, queueId, questionText);
 
             // Update queue item with audio URL and completed status
             await this.db
@@ -59,6 +56,19 @@ export class AudioProcessingProcessor {
                     errorMessage: null,
                 })
                 .where(eq(questionQueueSchema.id, queueId));
+
+            // Fetch queue item to get questionId
+            const [queueItem] = await this.db
+                .select()
+                .from(questionQueueSchema)
+                .where(eq(questionQueueSchema.id, queueId));
+
+            if (queueItem && queueItem.questionId) {
+                await this.db
+                    .update(questions)
+                    .set({ audioUrl })
+                    .where(eq(questions.id, queueItem.questionId));
+            }
 
             this.logger.log(`Audio processing completed for ${queueId}`);
 
@@ -160,13 +170,7 @@ export class AudioProcessingProcessor {
         }
     }
 
-    private async saveWaveFile(
-        filename: string,
-        pcmData: Buffer,
-        channels = 1,
-        rate = 24000,
-        sampleWidth = 2,
-    ): Promise<void> {
+    private async saveWaveFile(filename: string, pcmData: Buffer, channels = 1, rate = 24000, sampleWidth = 2): Promise<void> {
         return new Promise((resolve, reject) => {
             const writer = new wav.Writer({
                 channels,

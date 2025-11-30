@@ -10,4 +10,4 @@ import { QueueModule } from '@/queues/queue.module';
     providers: [QuestionGenerationService, QuestionService],
     exports: [QuestionGenerationService, QuestionService],
 })
-export class QuestionModule { }
+export class QuestionModule {}

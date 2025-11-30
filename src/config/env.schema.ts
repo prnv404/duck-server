@@ -25,6 +25,12 @@ export const envSchema = z.object({
     UPSTASH_REDIS_REST_URL: z.string().url(),
     UPSTASH_REDIS_REST_TOKEN: z.string(),
 
+    REDIS_URL: z.string().url(),
+
+    REDIS_PASSWORD: z.string(),
+    REDIS_HOST: z.string(),
+    REDIS_PORT: z.coerce.number().default(6379),
+
     APP_URL: z.string().url(),
 
     GEMINI_API_KEY: z.string(),

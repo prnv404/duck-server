@@ -5,7 +5,7 @@ import { EnvService } from '@/config/config.service';
 import { createIORedisFromUpstash } from './redis.adapter';
 import { QuestionGenerationProcessor } from './processors/question-generation.processor';
 import { AudioProcessingProcessor } from './processors/audio-processing.processor';
-import { IntegrationRegistry } from '@/integrations';
+import { IntegrationModule } from '@/integrations/integration.module';
 import { DatabaseModule } from '@/database/db.module';
 
 export const QUESTION_GENERATION_QUEUE = 'question-generation';
@@ -15,15 +15,20 @@ export const AUDIO_PROCESSING_QUEUE = 'audio-processing';
     imports: [
         ConfigModule,
         DatabaseModule,
+        IntegrationModule,
         BullModule.forRootAsync({
             inject: [EnvService],
             useFactory: (configService: EnvService) => {
-                const upstashUrl = configService.get('UPSTASH_REDIS_REST_URL')!;
-                const upstashToken = configService.get('UPSTASH_REDIS_REST_TOKEN')!;
-
+                const redisPassword = configService.get('REDIS_PASSWORD')!;
+                const redisHost = configService.get('REDIS_HOST')!;
+                const redisPort = configService.get('REDIS_PORT')!;
                 return {
                     createClient: () => {
-                        return createIORedisFromUpstash(upstashUrl, upstashToken);
+                        return createIORedisFromUpstash({
+                            host: redisHost,
+                            port: redisPort,
+                            password: redisPassword,
+                        });
                     },
                     defaultJobOptions: {
                         attempts: 3,
@@ -37,12 +42,9 @@ export const AUDIO_PROCESSING_QUEUE = 'audio-processing';
                 };
             },
         }),
-        BullModule.registerQueue(
-            { name: QUESTION_GENERATION_QUEUE },
-            { name: AUDIO_PROCESSING_QUEUE },
-        ),
+        BullModule.registerQueue({ name: QUESTION_GENERATION_QUEUE }, { name: AUDIO_PROCESSING_QUEUE }),
     ],
-    providers: [QuestionGenerationProcessor, AudioProcessingProcessor, IntegrationRegistry],
+    providers: [QuestionGenerationProcessor, AudioProcessingProcessor],
     exports: [BullModule],
 })
-export class QueueModule { }
+export class QueueModule {}

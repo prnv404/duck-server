@@ -5,7 +5,5 @@ import { GeminiIntegration, IntegrationRegistry } from '@/integrations';
 export class AppService {
     constructor(private registry: IntegrationRegistry) {}
 
-    async getHello() {
-        
-    }
+    async getHello() {}
 }
