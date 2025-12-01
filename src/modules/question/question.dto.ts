@@ -20,12 +20,12 @@ export class GenerateQuestionDto {
     @IsOptional()
     @IsNumber()
     @Min(1)
-    @Max(20)
+    @Max(40)
     count?: number;
 }
 
 export class BatchApproveDto {
-    @IsUUID('4', { each: true, always: true })
+
     @IsArray()
     queueIds: string[];
 }

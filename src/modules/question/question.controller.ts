@@ -15,11 +15,10 @@ export class QuestionController {
         private readonly questionGenService: QuestionGenerationService,
         @InjectQueue(QUESTION_GENERATION_QUEUE) private questionQueue: Queue,
         @Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB,
-    ) { }
+    ) {}
 
     @Post('generate')
     async generateQuestions(@Body() dto: GenerateQuestionDto) {
-
         const [topic] = await this.db.select().from(topics).where(eq(topics.id, dto.topicId));
 
         if (!topic) {
@@ -70,17 +69,15 @@ export class QuestionController {
         };
     }
 
-    
     @Post('approve/batch')
     async batchApproveQuestions(@Body() dto: BatchApproveDto) {
-        return this.questionGenService.batchApproveQuestions(dto.queueIds);
+        return this.questionGenService.approveQuestions(dto.queueIds);
     }
 
-
-    @Post('approve/:id')
-    async approveQuestion(@Param('id', ParseUUIDPipe) id: string) {
-        return this.questionGenService.approveQuestion(id);
-    }
+    // @Post('approve/:id')
+    // async approveQuestion(@Param('id', ParseUUIDPipe) id: string) {
+    //     return this.questionGenService.approveQuestion(id);
+    // }
 
     @Post('reject/:id')
     async rejectQuestion(@Param('id', ParseUUIDPipe) id: string) {
@@ -89,6 +86,9 @@ export class QuestionController {
 
     @Get('pending')
     async getPendingQuestions() {
-        return this.questionGenService.getPendingQuestions();
+        const pendings = await this.questionGenService.getPendingQuestions();
+
+        // send all ids as array
+        return pendings.questions.map((question) => question.id);
     }
 }

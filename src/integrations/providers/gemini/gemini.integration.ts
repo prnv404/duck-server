@@ -114,7 +114,12 @@ export class GeminiIntegration implements BaseIntegration<GeminiIntegrationConfi
         Ensure difficulty is around ${input.difficulty || 1} (scale 1-3).
         You are a curriculum expert. Generate ${input.count || 5} high-quality MCQs.
 
-        Maintain an overall difficulty of ${input.difficulty || 1} (scale 1–3).
+        Generate questions for the topic that genuinely help a Kerala PSC aspirant crack the exam.
+        Focus on the most important, most repeatedly-tested, and most confusing areas of that topic.
+        Make the questions feel practical, exam-smart, and close to what PSC setters ask — not theoretical or academic.
+        Include tricky wording, common traps, and subtle distinctions PSC loves testing.
+        Keep explanations short, friendly, and confidence-building, helping the learner understand the logic quickly.
+        Overall vibe should make the learner feel: ‘I really needed this question — this is exactly what PSC asks.
         
         Always give question and answer in Malayalam
         
@@ -172,13 +177,29 @@ export class GeminiIntegration implements BaseIntegration<GeminiIntegrationConfi
             // 1. Get the raw audio (PCM) data from Gemini
             const response = await this._client.models.generateContent({
                 model: modelName,
-                contents: [{ parts: [{ text: input.prompt }] }],
+
+                contents: [
+                    {
+                        parts: [
+                            {
+                                text:
+                                    `
+                            Use a calm, friendly, and clear teaching tone.
+                            Speak at a medium pace, with smooth transitions.
+                            Explain clearly, without sounding robotic.
+                            Your goal is to help the learner understand.
+                            Keep the voice warm, approachable
+                            ` + input.prompt,
+                            },
+                        ],
+                    },
+                ],
                 config: {
                     responseModalities: ['AUDIO'],
                     speechConfig: {
                         voiceConfig: {
                             prebuiltVoiceConfig: {
-                                voiceName: 'Rasalgethi',
+                                voiceName: 'Despina',
                             },
                         },
                     },

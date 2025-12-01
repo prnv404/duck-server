@@ -12,7 +12,7 @@ export class QuestionGenerationService {
         private registry: IntegrationRegistry,
         @Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB,
         @InjectQueue('audio-processing') private audioQueue: Queue,
-    ) { }
+    ) {}
 
     async generateQuestions(input: { prompt: string; topicId: string; model?: string; difficulty?: number; count?: number }) {
         const gemini = this.registry.get<GeminiIntegration>('gemini');
@@ -46,77 +46,112 @@ export class QuestionGenerationService {
         };
     }
 
-    async approveQuestion(queueId: string) {
-        // 1. Fetch from Queue
-        const [queueItem] = await this.db.select().from(questionQueue).where(eq(questionQueue.id, queueId));
+    async approveQuestions(queueIds: string[]) {
+    const results: any[] = [];
 
-        if (!queueItem) {
-            throw new BadRequestException('Question not found in queue');
-        }
+    for (const queueId of queueIds) {
+        try {
+            // 1. Fetch Queue Item
+            const [queueItem] = await this.db
+                .select()
+                .from(questionQueue)
+                .where(eq(questionQueue.id, queueId));
 
-        if (queueItem.is_approved) {
-            throw new BadRequestException('Question already approved');
-        }
-
-        const questionData = queueItem.question as Pick<Question, 'questionText' | 'explanation' | 'difficulty' | 'points'> & {
-            options: Pick<AnswerOption, 'optionText' | 'isCorrect' | 'optionOrder'>[];
-        };
-
-        // 2. Move to Questions Table
-        await this.db.transaction(async (tx) => {
-            const [newQuestion] = await tx
-                .insert(questions)
-                .values({
-                    questionText: questionData.questionText,
-                    explanation: questionData.explanation,
-                    difficulty: questionData.difficulty,
-                    points: questionData.points,
-                    audioUrl: null, // Will be updated by audio processor
-                    topicId: queueItem.topicId,
-                })
-                .returning();
-
-            if (questionData.options && Array.isArray(questionData.options)) {
-                for (const opt of questionData.options) {
-                    await tx.insert(answerOptions).values({
-                        questionId: newQuestion.id,
-                        optionText: opt.optionText,
-                        isCorrect: opt.isCorrect,
-                        optionOrder: opt.optionOrder,
-                    });
-                }
+            if (!queueItem) {
+                results.push({
+                    queueId,
+                    success: false,
+                    message: "Queue item not found",
+                });
+                continue;
             }
 
-            // Update queue status
-            await tx
-                .update(questionQueue)
-                .set({
-                    is_approved: true,
-                    status: 'pending_audio',
-                    questionId: newQuestion.id,
-                })
-                .where(eq(questionQueue.id, queueId));
-        });
+            const questionData = queueItem.question as Pick<
+                Question,
+                "questionText" | "explanation" | "difficulty" | "points"
+            > & {
+                options: Pick<
+                    AnswerOption,
+                    "optionText" | "isCorrect" | "optionOrder"
+                >[];
+            };
 
-        // 3. Queue Audio Generation
-        const job = await this.audioQueue.add(
-            {
-                queueId: queueItem.id,
-                questionText: questionData.questionText,
-            },
-            {
-                priority: 1,
-                removeOnComplete: true,
-            },
-        );
+            // 2. Move to Live Questions Table (Transaction per item)
+            let newQuestion;
 
-        return {
-            success: true,
-            questionId: queueId,
-            jobId: job.id.toString(),
-            message: 'Question approved and audio generation queued',
-        };
+            await this.db.transaction(async (tx) => {
+                const inserted = await tx
+                    .insert(questions)
+                    .values({
+                        questionText: questionData.questionText,
+                        explanation: questionData.explanation,
+                        difficulty: questionData.difficulty,
+                        points: questionData.points,
+                        audioUrl: null,
+                        topicId: queueItem.topicId,
+                    })
+                    .returning();
+
+                newQuestion = inserted[0];
+
+                // Insert Options
+                if (Array.isArray(questionData.options)) {
+                    for (const opt of questionData.options) {
+                        await tx.insert(answerOptions).values({
+                            questionId: newQuestion.id,
+                            optionText: opt.optionText,
+                            isCorrect: opt.isCorrect,
+                            optionOrder: opt.optionOrder,
+                        });
+                    }
+                }
+
+                // Update queue row
+                await tx
+                    .update(questionQueue)
+                    .set({
+                        is_approved: true,
+                        status: "pending_audio",
+                        questionId: newQuestion.id,
+                    })
+                    .where(eq(questionQueue.id, queueId));
+            });
+
+            // 3. Queue Audio Job
+            const job = await this.audioQueue.add(
+                {
+                    queueId,
+                    questionText: questionData.questionText,
+                },
+                {
+                    priority: 1,
+                    removeOnComplete: true,
+                }
+            );
+
+            results.push({
+                queueId,
+                success: true,
+                questionId: newQuestion.id,
+                jobId: job.id.toString(),
+            });
+
+        } catch (err) {
+            results.push({
+                queueId,
+                success: false,
+                message: err?.message ?? "Unknown error",
+            });
+        }
     }
+
+    return {
+        success: true,
+        results,
+        message: "Batch approval complete",
+    };
+}
+
 
     async rejectQuestion(queueId: string) {
         const [queueItem] = await this.db.select().from(questionQueue).where(eq(questionQueue.id, queueId));
@@ -129,10 +164,7 @@ export class QuestionGenerationService {
             throw new BadRequestException('Cannot reject an approved question');
         }
 
-        await this.db
-            .update(questionQueue)
-            .set({ is_rejected: true })
-            .where(eq(questionQueue.id, queueId));
+        await this.db.update(questionQueue).set({ is_rejected: true }).where(eq(questionQueue.id, queueId));
 
         return { success: true, message: 'Question rejected' };
     }
@@ -142,9 +174,7 @@ export class QuestionGenerationService {
         const pendingQuestions = await this.db
             .select()
             .from(questionQueue)
-            .where(
-                sql`${questionQueue.is_approved} = false AND ${questionQueue.is_rejected} = false`
-            )
+            .where(sql`${questionQueue.is_approved} = false AND ${questionQueue.is_rejected} = false`)
             .orderBy(questionQueue.createdAt);
 
         return {
@@ -159,17 +189,16 @@ export class QuestionGenerationService {
         };
     }
 
-    async batchApproveQuestions(queueIds: string[]) {
-        const results: any[] = [];
-        for (const id of queueIds) {
-            try {
-                const result = await this.approveQuestion(id);
-                results.push({ id, status: 'fulfilled', value: result });
-            } catch (error) {
-                results.push({ id, status: 'rejected', reason: error.message });
-            }
-        }
-        return results;
-    }
-
+    // async batchApproveQuestions(queueIds: string[]) {
+    //     const results: any[] = [];
+    //     for (const id of queueIds) {
+    //         try {
+    //             const result = await this.approveQuestion(id);
+    //             results.push({ id, status: 'fulfilled', value: result });
+    //         } catch (error) {
+    //             results.push({ id, status: 'rejected', reason: error.message });
+    //         }
+    //     }
+    //     return results;
+    // }
 }

@@ -168,85 +168,38 @@ export class QuizSessionService {
         const correctCount = answers.filter((a) => a.isCorrect).length;
         const timeSpentSeconds = session.timeSpentSeconds ?? 0;
         const xpEarned = correctCount * 10 + Math.floor(timeSpentSeconds / 60) * 2;
-
+        const accuracy = session.totalQuestions > 0 ? ((correctCount / session.totalQuestions) * 100).toFixed(2) : '0.00';
         const today = new Date();
-        const todayStr = today.toISOString().split('T')[0]; // 'YYYY-MM-DD' format
 
-        // Fetch current user stats for calculations
-        const [currentStats] = await this.db.select().from(userStats).where(eq(userStats.userId, session.userId)).limit(1);
-
-        // Calculate new totals and accuracy
-        const newTotalCorrect = (currentStats?.totalCorrectAnswers || 0) + correctCount;
-        const newTotalAttempted = (currentStats?.totalQuestionsAttempted || 0) + session.totalQuestions;
-        const newOverallAccuracy = newTotalAttempted > 0 ? ((newTotalCorrect / newTotalAttempted) * 100).toFixed(2) : '0.00';
-
-        // Calculate streak logic
-        // Calculate streak logic
-        const lastActivityDate = currentStats?.lastActivityDate;
-        let newCurrentStreak = 1;
-
-        if (lastActivityDate) {
-            // lastActivityDate is already a Date object from Drizzle, or a string 'YYYY-MM-DD'
-            let lastDateStr: string;
-
-            if (lastActivityDate instanceof Date) {
-                lastDateStr = lastActivityDate.toISOString().split('T')[0];
-            } else if (typeof lastActivityDate === 'string') {
-                lastDateStr = lastActivityDate;
-            } else {
-                // Handle any other format
-                lastDateStr = new Date(lastActivityDate).toISOString().split('T')[0];
-            }
-
-            // Compare dates as strings (simpler and more reliable)
-            const todayDate = new Date(todayStr);
-            const yesterdayDate = new Date(todayDate);
-            yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-            const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
-
-            if (lastDateStr === yesterdayStr) {
-                // Streak continues (last activity was yesterday)
-                newCurrentStreak = (currentStats?.currentStreak || 0) + 1;
-            } else if (lastDateStr === todayStr) {
-                // Already active today (keep current streak)
-                newCurrentStreak = currentStats?.currentStreak || 1;
-            } else {
-                // Streak broken (last activity was before yesterday)
-                newCurrentStreak = 1;
-            }
-        }
-
-        const newLongestStreak = Math.max(currentStats?.longestStreak || 0, newCurrentStreak);
+        // Prepare session object for gamification service
+        const completedSession = {
+            ...session,
+            status: 'completed',
+            completedAt: today,
+            xpEarned,
+            accuracy,
+            questionsAttempted: session.totalQuestions,
+            correctAnswers: correctCount,
+            timeSpentSeconds,
+        };
 
         await this.db.transaction(async (tx) => {
-            // Update practice session
+            // 1. Update practice session status
             await tx
                 .update(practiceSessions)
                 .set({
                     status: 'completed',
                     completedAt: today,
                     xpEarned,
-                    accuracy: session.totalQuestions > 0 ? ((correctCount / session.totalQuestions) * 100).toFixed(2) : '0.00',
+                    accuracy,
                 })
                 .where(eq(practiceSessions.id, sessionId));
 
-            // Update user stats - Pass Date object for date column
-            await tx
-                .update(userStats)
-                .set({
-                    totalXp: sql`${userStats.totalXp} + ${xpEarned}`,
-                    totalQuizzesCompleted: sql`${userStats.totalQuizzesCompleted} + 1`,
-                    totalQuestionsAttempted: newTotalAttempted,
-                    totalCorrectAnswers: newTotalCorrect,
-                    overallAccuracy: newOverallAccuracy,
-                    totalPracticeTimeMinutes: sql`${userStats.totalPracticeTimeMinutes} + ${Math.floor(timeSpentSeconds / 60)}`,
-                    currentStreak: newCurrentStreak,
-                    longestStreak: newLongestStreak,
-                    lastActivityDate: today,
-                })
-                .where(eq(userStats.userId, session.userId));
+            // 2. Process Gamification (XP, Level, Streaks, Badges)
+            // We cast to any because the session object is structurally compatible but might have minor type differences
+            await this.gamificationService.processSessionGamification(session.userId, completedSession as any, tx);
 
-            // Update user question history
+            // 3. Update user question history
             for (const ans of answers) {
                 await tx
                     .insert(userQuestionHistory)
@@ -267,7 +220,7 @@ export class QuizSessionService {
                     });
             }
 
-            // Update user topic progress
+            // 4. Update user topic progress
             for (const ans of answers) {
                 const [q] = await tx
                     .select({ topicId: questions.topicId })
@@ -308,36 +261,6 @@ export class QuizSessionService {
                         });
                 }
             }
-
-            // Update streak calendar
-            await tx
-                .insert(streakCalendar)
-                .values({
-                    userId: session.userId,
-                    activityDate: today,
-                    quizzesCompleted: 1,
-                    questionsAnswered: session.totalQuestions,
-                    xpEarned,
-                })
-                .onConflictDoUpdate({
-                    target: [streakCalendar.userId, streakCalendar.activityDate],
-                    set: {
-                        quizzesCompleted: sql`${streakCalendar.quizzesCompleted} + 1`,
-                        questionsAnswered: sql`${streakCalendar.questionsAnswered} + ${session.totalQuestions}`,
-                        xpEarned: sql`${streakCalendar.xpEarned} + ${xpEarned}`,
-                    },
-                });
-
-            // await this.gamificationService.processQuizCompletion(session.userId, {
-            //     id: sessionId,
-            //     correctAnswers: session.correctAnswers,
-            //     questionsAttempted: session.questionsAttempted,
-            //     xpEarned,
-            //     timeSpentSeconds: session.timeSpentSeconds!,
-            //     accuracy: Number(session.accuracy),
-            //     topicId: session.topicId,
-            //     completedAt: session.completedAt!,
-            // });
         });
 
         const [updated] = await this.db.select().from(practiceSessions).where(eq(practiceSessions.id, sessionId));

@@ -11,6 +11,8 @@ import {
     practiceSessions,
     topics,
     subjects,
+    type PracticeSession,
+    type Badge,
 } from '@/database/schema';
 import { ServiceHelper } from '@/common/utils';
 
@@ -26,41 +28,27 @@ export class GamificationService {
 
     constructor(@Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB) {}
 
-    async processQuizCompletion(
-        userId: string,
-        session: {
-            id: string;
-            correctAnswers: number;
-            questionsAttempted: number;
-            xpEarned: number;
-            timeSpentSeconds: number;
-            accuracy: number;
-            topicId?: string | null;
-            subjectName?: string | null;
-            completedAt: Date;
-        },
-    ) {
-        return this.db.transaction(async (tx) => {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+    // ──────────────────────────────────────────────────────────────────────
+    // Orchestrator
+    // ──────────────────────────────────────────────────────────────────────
+    async processSessionGamification(userId: string, session: PracticeSession, tx: any) {
+        // 1. Update XP and Level
+        await this.updateXpAndLevel(tx, userId, session);
 
-            await this.updateXpAndLevel(tx, userId, session);
-            // await this.maintainStreak(tx, userId, today, session);
-            // if (session.topicId) await this.updateTopicProgress(tx, userId, session.topicId, session);
+        // 2. Maintain Streak
+        const today = new Date();
+        await this.maintainStreak(tx, userId, today, session);
 
-            const unlockedBadges = await this.evaluateAllBadgesDynamically(tx, userId, session);
+        // 3. Evaluate Badges
+        const unlockedBadges = await this.evaluateAllBadgesDynamically(tx, userId, session);
 
-            return {
-                xpGained: session.xpEarned,
-                badgesUnlocked: unlockedBadges,
-            };
-        });
+        return { unlockedBadges };
     }
 
     // ──────────────────────────────────────────────────────────────────────
     // Fully Dynamic Badge Evaluation — Add 1000 badges → just works
     // ──────────────────────────────────────────────────────────────────────
-    private async evaluateAllBadgesDynamically(tx: any, userId: string, session: any) {
+    public async evaluateAllBadgesDynamically(tx: any, userId: string, session: any) {
         const unlocked: any[] = [];
         const stats = await tx.query.userStats.findFirst({ where: eq(userStats.userId, userId) });
 
@@ -156,7 +144,7 @@ export class GamificationService {
     // ──────────────────────────────────────────────────────────────────────
     // Keep your existing helpers (unchanged)
     // ──────────────────────────────────────────────────────────────────────
-    private async updateXpAndLevel(tx: any, userId: string, session: any) {
+    public async updateXpAndLevel(tx: any, userId: string, session: any) {
         const stats = await tx.query.userStats.findFirst({ where: eq(userStats.userId, userId) });
         const newTotalXp = stats.totalXp + session.xpEarned;
         let newLevel = stats.level;
@@ -171,7 +159,7 @@ export class GamificationService {
                 totalQuizzesCompleted: sql`${userStats.totalQuizzesCompleted} + 1`,
                 totalQuestionsAttempted: sql`${userStats.totalQuestionsAttempted} + ${session.questionsAttempted}`,
                 totalCorrectAnswers: sql`${userStats.totalCorrectAnswers} + ${session.correctAnswers}`,
-                overallAccuracy: sql`ROUND((${userStats.totalCorrectAnswers} + ${session.correctAnswers})::decimal / NULLIF((${userStats.totalQuestionsAttempted} + ${session.questionsAttempted}), 0), 2)`,
+                overallAccuracy: sql`ROUND(((${userStats.totalCorrectAnswers} + ${session.correctAnswers})::decimal / NULLIF((${userStats.totalQuestionsAttempted} + ${session.questionsAttempted}), 0)) * 100, 2)`,
                 totalPracticeTimeMinutes: sql`${userStats.totalPracticeTimeMinutes} + ${Math.floor(session.timeSpentSeconds / 60)}`,
             })
             .where(eq(userStats.userId, userId));
@@ -183,7 +171,10 @@ export class GamificationService {
         return total;
     }
 
-    private async maintainStreak(tx: any, userId: string, today: Date, session: any) {
+    public async maintainStreak(tx: any, userId: string, dateArg: Date, session: any) {
+        const today = new Date(dateArg);
+        today.setHours(0, 0, 0, 0);
+
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
         const existing = await tx.query.streakCalendar.findFirst({
@@ -220,40 +211,10 @@ export class GamificationService {
             .update(userStats)
             .set({
                 currentStreak: newStreak,
-                longestStreak: sql`GREATEST(${stats.longestStreak}, ${newStreak})`,
+                longestStreak: Math.max(stats.longestStreak, newStreak),
                 lastActivityDate: today,
             })
             .where(eq(userStats.userId, userId));
-    }
-
-    private async updateTopicProgress(tx: any, userId: string, topicId: string, session: any) {
-        const existing = await tx.query.userTopicProgress.findFirst({
-            where: and(eq(userTopicProgress.userId, userId), eq(userTopicProgress.topicId, topicId)),
-        });
-
-        const totalAttempted = (existing?.questionsAttempted || 0) + session.questionsAttempted;
-        const totalCorrect = (existing?.correctAnswers || 0) + session.correctAnswers;
-        const accuracy = totalAttempted > 0 ? (totalCorrect / totalAttempted) * 100 : 0;
-
-        await tx
-            .insert(userTopicProgress)
-            .values({
-                userId,
-                topicId,
-                questionsAttempted: session.questionsAttempted,
-                correctAnswers: session.correctAnswers,
-                accuracy: accuracy.toFixed(2),
-                lastPracticedAt: new Date(),
-            })
-            .onConflictDoUpdate({
-                target: [userTopicProgress.userId, userTopicProgress.topicId],
-                set: {
-                    questionsAttempted: totalAttempted,
-                    correctAnswers: totalCorrect,
-                    accuracy: accuracy.toFixed(2),
-                    lastPracticedAt: new Date(),
-                },
-            });
     }
 
     async getStreakCalendar(userId: string): Promise<StreakCalendarData> {

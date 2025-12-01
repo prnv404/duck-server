@@ -6,7 +6,6 @@ import { answerOptions } from './answer.options';
 import { sessionAnswers } from './session.answers';
 import { userQuestionHistory } from './question.history';
 import { serial } from 'drizzle-orm/pg-core';
-import { json } from 'drizzle-orm/pg-core';
 
 export const questions = pgTable(
     'questions',

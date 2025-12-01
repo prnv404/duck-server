@@ -20,7 +20,7 @@ export class AudioProcessingProcessor {
     constructor(
         private registry: IntegrationRegistry,
         @Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB,
-    ) { }
+    ) {}
 
     @Process({
         concurrency: 1,
@@ -58,16 +58,10 @@ export class AudioProcessingProcessor {
                 .where(eq(questionQueueSchema.id, queueId));
 
             // Fetch queue item to get questionId
-            const [queueItem] = await this.db
-                .select()
-                .from(questionQueueSchema)
-                .where(eq(questionQueueSchema.id, queueId));
+            const [queueItem] = await this.db.select().from(questionQueueSchema).where(eq(questionQueueSchema.id, queueId));
 
             if (queueItem && queueItem.questionId) {
-                await this.db
-                    .update(questions)
-                    .set({ audioUrl })
-                    .where(eq(questions.id, queueItem.questionId));
+                await this.db.update(questions).set({ audioUrl }).where(eq(questions.id, queueItem.questionId));
             }
 
             this.logger.log(`Audio processing completed for ${queueId}`);
@@ -109,7 +103,7 @@ export class AudioProcessingProcessor {
             voice: 'achernar',
         });
 
-        const debugDir = path.join(process.cwd(), 'audio_debug');
+        const debugDir = path.join(process.cwd(), 'audio_temp_storage');
 
         try {
             await fsPromises.mkdir(debugDir, { recursive: true });
@@ -162,8 +156,8 @@ export class AudioProcessingProcessor {
         } finally {
             // 5. Clean up local files
             try {
-                await fsPromises.unlink(localWavFilePath).catch(() => { });
-                await fsPromises.unlink(localMp3FilePath).catch(() => { });
+                await fsPromises.unlink(localWavFilePath).catch(() => {});
+                await fsPromises.unlink(localMp3FilePath).catch(() => {});
             } catch (error) {
                 this.logger.warn('Failed to cleanup temp files', error);
             }
