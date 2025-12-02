@@ -66,6 +66,7 @@ export interface PracticeSessionResponseDto {
     userId: string;
     sessionType: string;
     topicId?: string | null;
+    topicName?: string | null;
     totalQuestions: number;
     questionsAttempted: number;
     correctAnswers: number;

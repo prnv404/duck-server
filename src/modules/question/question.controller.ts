@@ -15,7 +15,7 @@ export class QuestionController {
         private readonly questionGenService: QuestionGenerationService,
         @InjectQueue(QUESTION_GENERATION_QUEUE) private questionQueue: Queue,
         @Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB,
-    ) {}
+    ) { }
 
     @Post('generate')
     async generateQuestions(@Body() dto: GenerateQuestionDto) {
@@ -71,13 +71,9 @@ export class QuestionController {
 
     @Post('approve/batch')
     async batchApproveQuestions(@Body() dto: BatchApproveDto) {
-        return this.questionGenService.approveQuestions(dto.queueIds);
+        return this.questionGenService.approveQuestions(dto.queueIds) as any
     }
 
-    // @Post('approve/:id')
-    // async approveQuestion(@Param('id', ParseUUIDPipe) id: string) {
-    //     return this.questionGenService.approveQuestion(id);
-    // }
 
     @Post('reject/:id')
     async rejectQuestion(@Param('id', ParseUUIDPipe) id: string) {
@@ -90,5 +86,13 @@ export class QuestionController {
 
         // send all ids as array
         return pendings.questions.map((question) => question.id);
+    }
+
+    @Post(':id/vote')
+    async updateQuestionVote(
+        @Param('id', ParseUUIDPipe) questionId: string,
+        @Body() body: { voteType: 'upvote' | 'downvote'; reason?: string }
+    ) {
+        return this.questionGenService.updateQuestionVote(questionId, body.voteType, body.reason);
     }
 }

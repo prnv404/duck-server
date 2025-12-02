@@ -35,7 +35,7 @@ export const userStats = pgTable(
 
         // Time tracking
         totalPracticeTimeMinutes: integer('total_practice_time_minutes').default(0).notNull(),
-
+        
         createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
         updatedAt: timestamp('updated_at', { mode: 'date' })
             .defaultNow()

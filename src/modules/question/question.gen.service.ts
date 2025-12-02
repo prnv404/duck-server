@@ -6,13 +6,21 @@ import * as Database from '@/database';
 import { questionQueue, questions, answerOptions, Question, AnswerOption } from '@/database/schema';
 import { eq, sql, gt } from 'drizzle-orm';
 
+interface ApprovalResult {
+    queueId: string;
+    success: boolean;
+    message?: string;
+    questionId?: string;
+    jobId?: string;
+}
+
 @Injectable()
 export class QuestionGenerationService {
     constructor(
         private registry: IntegrationRegistry,
         @Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB,
         @InjectQueue('audio-processing') private audioQueue: Queue,
-    ) {}
+    ) { }
 
     async generateQuestions(input: { prompt: string; topicId: string; model?: string; difficulty?: number; count?: number }) {
         const gemini = this.registry.get<GeminiIntegration>('gemini');
@@ -46,111 +54,115 @@ export class QuestionGenerationService {
         };
     }
 
+
     async approveQuestions(queueIds: string[]) {
-    const results: any[] = [];
+        const results: ApprovalResult[] = [];
 
-    for (const queueId of queueIds) {
-        try {
-            // 1. Fetch Queue Item
-            const [queueItem] = await this.db
-                .select()
-                .from(questionQueue)
-                .where(eq(questionQueue.id, queueId));
+        for (const queueId of queueIds) {
+            try {
+                // 1. Fetch Queue Item
+                const [queueItem] = await this.db
+                    .select()
+                    .from(questionQueue)
+                    .where(eq(questionQueue.id, queueId));
 
-            if (!queueItem) {
+                if (!queueItem) {
+                    results.push({
+                        queueId,
+                        success: false,
+                        message: "Queue item not found",
+                    });
+                    continue;
+                }
+
+                const questionData = queueItem.question as Pick<
+                    Question,
+                    "questionText" | "explanation" | "difficulty" | "points"
+                > & {
+                    options: Pick<
+                        AnswerOption,
+                        "optionText" | "isCorrect" | "optionOrder"
+                    >[];
+                };
+
+                // 2. Move to Live Questions Table (Transaction per item)
+                let newQuestion;
+
+                await this.db.transaction(async (tx) => {
+                    const inserted = await tx
+                        .insert(questions)
+                        .values({
+                            questionText: questionData.questionText,
+                            explanation: questionData.explanation,
+                            difficulty: questionData.difficulty,
+                            points: questionData.points,
+                            audioUrl: null,
+                            topicId: queueItem.topicId,
+                        })
+                        .returning();
+
+                    newQuestion = inserted[0];
+
+                    // Insert Options
+                    if (Array.isArray(questionData.options)) {
+                        for (const opt of questionData.options) {
+                            await tx.insert(answerOptions).values({
+                                questionId: newQuestion.id,
+                                optionText: opt.optionText,
+                                isCorrect: opt.isCorrect,
+                                optionOrder: opt.optionOrder,
+                            });
+                        }
+                    }
+
+                    // Update queue row
+                    await tx
+                        .update(questionQueue)
+                        .set({
+                            is_approved: true,
+                            status: "pending_audio",
+                            questionId: newQuestion.id,
+                        })
+                        .where(eq(questionQueue.id, queueId));
+                });
+
+                // 3. Queue Audio Job: implement later
+                if (false) {
+                    const job = await this.audioQueue.add(
+                        {
+                            queueId,
+                            questionText: questionData.questionText,
+                        },
+                        {
+                            priority: 1,
+                            removeOnComplete: true,
+                        }
+                    );
+                }
+
+
+                results.push({
+                    queueId,
+                    success: true,
+                    questionId: newQuestion.id,
+                    // jobId: job.id.toString(),
+                });
+
+            } catch (err) {
                 results.push({
                     queueId,
                     success: false,
-                    message: "Queue item not found",
+                    message: err?.message ?? "Unknown error",
                 });
-                continue;
             }
-
-            const questionData = queueItem.question as Pick<
-                Question,
-                "questionText" | "explanation" | "difficulty" | "points"
-            > & {
-                options: Pick<
-                    AnswerOption,
-                    "optionText" | "isCorrect" | "optionOrder"
-                >[];
-            };
-
-            // 2. Move to Live Questions Table (Transaction per item)
-            let newQuestion;
-
-            await this.db.transaction(async (tx) => {
-                const inserted = await tx
-                    .insert(questions)
-                    .values({
-                        questionText: questionData.questionText,
-                        explanation: questionData.explanation,
-                        difficulty: questionData.difficulty,
-                        points: questionData.points,
-                        audioUrl: null,
-                        topicId: queueItem.topicId,
-                    })
-                    .returning();
-
-                newQuestion = inserted[0];
-
-                // Insert Options
-                if (Array.isArray(questionData.options)) {
-                    for (const opt of questionData.options) {
-                        await tx.insert(answerOptions).values({
-                            questionId: newQuestion.id,
-                            optionText: opt.optionText,
-                            isCorrect: opt.isCorrect,
-                            optionOrder: opt.optionOrder,
-                        });
-                    }
-                }
-
-                // Update queue row
-                await tx
-                    .update(questionQueue)
-                    .set({
-                        is_approved: true,
-                        status: "pending_audio",
-                        questionId: newQuestion.id,
-                    })
-                    .where(eq(questionQueue.id, queueId));
-            });
-
-            // 3. Queue Audio Job
-            const job = await this.audioQueue.add(
-                {
-                    queueId,
-                    questionText: questionData.questionText,
-                },
-                {
-                    priority: 1,
-                    removeOnComplete: true,
-                }
-            );
-
-            results.push({
-                queueId,
-                success: true,
-                questionId: newQuestion.id,
-                jobId: job.id.toString(),
-            });
-
-        } catch (err) {
-            results.push({
-                queueId,
-                success: false,
-                message: err?.message ?? "Unknown error",
-            });
         }
-    }
 
-    return {
-        success: true,
-        results,
-        message: "Batch approval complete",
-    };
-}
+        return {
+            success: true,
+            results,
+            message: "Batch approval complete",
+        };
+    }
 
 
     async rejectQuestion(queueId: string) {
@@ -201,4 +213,32 @@ export class QuestionGenerationService {
     //     }
     //     return results;
     // }
+    async updateQuestionVote(questionId: string, voteType: 'upvote' | 'downvote', reason?: string) {
+        const question = await this.db.query.questions.findFirst({
+            where: eq(questions.id, questionId),
+        });
+
+        if (!question) {
+            throw new BadRequestException('Question not found');
+        }
+
+        if (voteType === 'upvote') {
+            await this.db
+                .update(questions)
+                .set({ upvotes: sql`${questions.upvotes} + 1` })
+                .where(eq(questions.id, questionId));
+        } else {
+            await this.db
+                .update(questions)
+                .set({ downvotes: sql`${questions.downvotes} + 1` })
+                .where(eq(questions.id, questionId));
+
+            // Ideally we would store the reason in a separate table
+            if (reason) {
+                console.log(`Question ${questionId} downvoted. Reason: ${reason}`);
+            }
+        }
+
+        return { success: true };
+    }
 }

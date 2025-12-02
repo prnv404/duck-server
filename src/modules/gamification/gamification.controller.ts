@@ -6,6 +6,7 @@ import { Inject } from '@nestjs/common';
 import * as Database from '@/database';
 import { userBadges, badges, leaderboardEntries, users } from '@/database/schema';
 import { eq, and, desc } from 'drizzle-orm';
+import type { AuthenticatedRequest } from '@/common/types/request.types';
 
 @Controller('gamification')
 @UseGuards(JwtRestAuthGuard)
@@ -13,7 +14,7 @@ export class GamificationController {
     constructor(
         private readonly gamificationService: GamificationService,
         @Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB,
-    ) {}
+    ) { }
 
     /**
      * Get user's badges
@@ -21,7 +22,7 @@ export class GamificationController {
      */
     @Get('my-badges')
     @HttpCode(HttpStatus.OK)
-    async getMyBadges(@Req() req: any): Promise<BadgeResponseDto[]> {
+    async getMyBadges(@Req() req: AuthenticatedRequest): Promise<BadgeResponseDto[]> {
         const userBadgesList = await this.db
             .select({
                 badge: badges,
@@ -51,7 +52,7 @@ export class GamificationController {
      */
     @Get('badges')
     @HttpCode(HttpStatus.OK)
-    async getAllBadges(@Req() req: any): Promise<BadgeResponseDto[]> {
+    async getAllBadges(@Req() req: AuthenticatedRequest): Promise<BadgeResponseDto[]> {
         const allBadges = await this.db.select().from(badges);
         const unlockedBadgeIds = (
             await this.db.select({ badgeId: userBadges.badgeId }).from(userBadges).where(eq(userBadges.userId, req.user.id))
@@ -76,7 +77,7 @@ export class GamificationController {
      */
     @Get('my-streak')
     @HttpCode(HttpStatus.OK)
-    async getMyStreak(@Req() req: any): Promise<StreakDataDto> {
+    async getMyStreak(@Req() req: AuthenticatedRequest): Promise<StreakDataDto> {
         const streakData = await this.gamificationService.getStreakCalendar(req.user.id);
         return {
             currentStreak: streakData.currentStreak,
@@ -138,7 +139,7 @@ export class GamificationController {
      */
     @Get('my-rank')
     @HttpCode(HttpStatus.OK)
-    async getMyRank(@Req() req: any, @Query('period') period: string = 'weekly'): Promise<LeaderboardEntryDto | null> {
+    async getMyRank(@Req() req: AuthenticatedRequest, @Query('period') period: string = 'weekly'): Promise<LeaderboardEntryDto | null> {
         const [entry] = await this.db
             .select({
                 userId: leaderboardEntries.userId,

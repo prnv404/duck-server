@@ -9,11 +9,12 @@ import {
 } from './dto/rest-user.dto';
 import { JwtRestAuthGuard } from '@/common/guards/jwt-rest.guard';
 import { Throttle } from '@nestjs/throttler';
+import type { AuthenticatedRequest } from '@/common/types/request.types';
 
 @Controller('users')
 @UseGuards(JwtRestAuthGuard)
 export class UserController {
-    constructor(private readonly userService: UserService) {}
+    constructor(private readonly userService: UserService) { }
 
     /**
      * Get current user profile
@@ -21,7 +22,7 @@ export class UserController {
      */
     @Get('me')
     @HttpCode(HttpStatus.OK)
-    async getMe(@Req() req: any): Promise<UserResponseDto> {
+    async getMe(@Req() req: AuthenticatedRequest): Promise<UserResponseDto> {
         const user = await this.userService.getUser(req.user.id);
         return {
             id: user.id,
@@ -43,7 +44,7 @@ export class UserController {
      */
     @Patch('me')
     @HttpCode(HttpStatus.OK)
-    async updateMe(@Req() req: any, @Body() dto: UpdateUserDto): Promise<UserResponseDto> {
+    async updateMe(@Req() req: AuthenticatedRequest, @Body() dto: UpdateUserDto): Promise<UserResponseDto> {
         const user = await this.userService.updateUser(req.user.id, dto);
         return {
             id: user.id,
@@ -66,7 +67,7 @@ export class UserController {
     @Delete('me')
     @HttpCode(HttpStatus.OK)
     @Throttle({ default: { limit: 1, ttl: 60000 } }) // 1 request per minute
-    async deleteMe(@Req() req: any): Promise<{ success: boolean; message: string }> {
+    async deleteMe(@Req() req: AuthenticatedRequest): Promise<{ success: boolean; message: string }> {
         await this.userService.deleteUser(req.user.id);
         return {
             success: true,
@@ -80,7 +81,7 @@ export class UserController {
      */
     @Get('me/stats')
     @HttpCode(HttpStatus.OK)
-    async getMyStats(@Req() req: any): Promise<UserStatsResponseDto> {
+    async getMyStats(@Req() req: AuthenticatedRequest): Promise<UserStatsResponseDto> {
         const stats = await this.userService.getUserStats(req.user.id);
         return {
             id: stats.id,
@@ -108,7 +109,7 @@ export class UserController {
      */
     @Patch('me/stats')
     @HttpCode(HttpStatus.OK)
-    async updateMyStats(@Req() req: any, @Body() dto: UpdateUserStatsDto): Promise<UserStatsResponseDto> {
+    async updateMyStats(@Req() req: AuthenticatedRequest, @Body() dto: UpdateUserStatsDto): Promise<UserStatsResponseDto> {
         const stats = await this.userService.updateUserStats(req.user.id, dto);
         return {
             id: stats.id,
@@ -136,7 +137,7 @@ export class UserController {
      */
     @Get('me/streak')
     @HttpCode(HttpStatus.OK)
-    async getMyStreak(@Req() req: any): Promise<StreakCalendarResponseDto[]> {
+    async getMyStreak(@Req() req: AuthenticatedRequest): Promise<StreakCalendarResponseDto[]> {
         const streaks = await this.userService.getStreakCalendar(req.user.id);
         return streaks.map((streak) => ({
             id: streak.id,

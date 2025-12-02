@@ -3,10 +3,11 @@ import { AuthService } from './auth.service';
 import { RequestOtpDto, VerifyOtpDto, RefreshTokenDto, AuthResponseDto, RefreshTokenResponseDto } from './dto/auth.dto';
 import { JwtRestAuthGuard } from '@/common/guards/jwt-rest.guard';
 import { Throttle } from '@nestjs/throttler';
+import type { AuthenticatedRequest, JwtTokenPayload } from '@/common/types/request.types';
 
 @Controller('auth')
 export class AuthController {
-    constructor(private readonly authService: AuthService) {}
+    constructor(private readonly authService: AuthService) { }
 
     /**
      * Request OTP for phone number
@@ -55,7 +56,7 @@ export class AuthController {
      */
     @Post('refresh')
     @HttpCode(HttpStatus.OK)
-    async refreshToken(@Body() dto: RefreshTokenDto, @Req() req: any): Promise<RefreshTokenResponseDto> {
+    async refreshToken(@Body() dto: RefreshTokenDto): Promise<RefreshTokenResponseDto> {
         // Extract user ID from the refresh token (we need to decode it)
         const decoded = this.decodeToken(dto.refreshToken);
         const result = await this.authService.refreshTokens(decoded.sub, dto.refreshToken);
@@ -72,7 +73,7 @@ export class AuthController {
     @Post('logout')
     @HttpCode(HttpStatus.OK)
     @UseGuards(JwtRestAuthGuard)
-    async logout(@Req() req: any): Promise<{ success: boolean; message: string }> {
+    async logout(@Req() req: AuthenticatedRequest): Promise<{ success: boolean; message: string }> {
         await this.authService.logout(req.user.id);
         return {
             success: true,
@@ -83,7 +84,7 @@ export class AuthController {
     /**
      * Helper to decode JWT token without verification
      */
-    private decodeToken(token: string): any {
+    private decodeToken(token: string): JwtTokenPayload {
         const base64Url = token.split('.')[1];
         const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
         const jsonPayload = decodeURIComponent(

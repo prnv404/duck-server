@@ -1,5 +1,5 @@
 import { Injectable, Inject, NotFoundException } from '@nestjs/common';
-import { and, eq, notExists, gt, inArray, notInArray, sql, desc, asc, gte } from 'drizzle-orm';
+import { and, eq, notExists, gt, inArray, notInArray, sql, desc, asc, gte, SQL } from 'drizzle-orm';
 import * as Database from '@/database';
 import {
     questions,
@@ -14,6 +14,7 @@ import {
     QuestionPreferenceType,
 } from '@/database/schema';
 import { CreateSessionInput } from '../practice/practice.dto';
+import type { UserQuizPreferencesData, QueryConditions, UserQuizPreferences } from './types/question.types';
 
 export interface QuestionWithAnswers extends Question {
     answerOptions: AnswerOption[];
@@ -22,6 +23,7 @@ export interface QuestionWithAnswers extends Question {
 export interface QuestionWithMetadata extends Question {
     topicWeight: number | null;
     subjectWeight: number | null;
+    topicName: string | null;
 }
 
 export interface UserTopicProgressWithId {
@@ -31,12 +33,12 @@ export interface UserTopicProgressWithId {
 }
 
 @Injectable()
-export class QuestionGenerationService {
-    constructor(@Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB) {}
+export class QuestionService {
+    constructor(@Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB) { }
 
     async generateQuestions(dto: CreateSessionInput & { count: number }): Promise<QuestionWithAnswers[]> {
         const { userId, count = 15, type, subjectIds } = dto;
-        const preferences = await this.getUserPreferences(userId);
+        const preferences = await this.getUserPreferences(userId) as UserQuizPreferences;
         const baseConditions = this.getBaseExclusions(userId, preferences);
 
         let questions: Question[];
@@ -134,7 +136,7 @@ export class QuestionGenerationService {
         };
     }
 
-    private getBaseExclusions(userId: string, prefs: any) {
+    private getBaseExclusions(userId: string, prefs: UserQuizPreferencesData): QueryConditions {
         const conditions = [
             eq(questions.isActive, true),
             // Never show questions user got correct before
@@ -187,7 +189,7 @@ export class QuestionGenerationService {
         },
     ): Promise<QuestionWithMetadata[]> {
         const { topicIds, subjectIds, minDifficulty, limit = 100 } = options || {};
-        const whereClauses: any[] = [
+        const whereClauses: (SQL<unknown> | undefined)[] = [
             ...baseConditions,
             eq(topics.is_active_in_random, true),
             eq(subjects.is_active_in_random, true),
@@ -209,6 +211,7 @@ export class QuestionGenerationService {
                 question: questions,
                 topicWeight: topics.weightage,
                 subjectWeight: subjects.weightage,
+                topicName: topics.name,
             })
             .from(questions)
             .innerJoin(topics, eq(topics.id, questions.topicId))
@@ -221,6 +224,7 @@ export class QuestionGenerationService {
             ...c.question,
             topicWeight: c.topicWeight,
             subjectWeight: c.subjectWeight,
+            topicName: c.topicName,
         }));
     }
 

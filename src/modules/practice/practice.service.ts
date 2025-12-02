@@ -18,7 +18,7 @@ import {
     type SessionAnswer,
     type Question,
 } from '@/database/schema';
-import { QuestionGenerationService, QuestionWithAnswers } from '@/modules/question/question.service';
+import { QuestionService, QuestionWithAnswers } from '@/modules/question/question.service';
 import { BadRequestError, NotFoundError } from '@/common/exceptions';
 import { CreateSessionInput } from './practice.dto';
 import { GamificationService } from '@/modules/gamification/gamification.service';
@@ -30,14 +30,18 @@ export interface SubmitAnswerDto {
     timeSpentSeconds: number;
 }
 
+export interface QuestionWithTopicName extends QuestionWithAnswers {
+    topicName: string;
+}
+
 @Injectable()
 export class QuizSessionService {
     constructor(
         @Inject(Database.DRIZZLE)
         private readonly db: Database.DrizzleDB,
-        private readonly questionGen: QuestionGenerationService,
+        private readonly questionGen: QuestionService,
         private readonly gamificationService: GamificationService,
-    ) {}
+    ) { }
 
     async getPracticeSession(sessionId: string): Promise<PracticeSession> {
         const [sessionResult] = await this.db.select().from(practiceSessions).where(eq(practiceSessions.id, sessionId)).limit(1);
@@ -49,7 +53,7 @@ export class QuizSessionService {
         return session;
     }
 
-    async createPracticeSession(dto: CreateSessionInput): Promise<PracticeSession & { questions: Question[] }> {
+    async createPracticeSession(dto: CreateSessionInput): Promise<PracticeSession & { questions: QuestionWithTopicName[] }> {
         const { userId, type, totalQuestions = 10, topicId, subjectIds } = dto;
 
         console.log(dto);
@@ -69,8 +73,7 @@ export class QuizSessionService {
             type,
             topicId,
             subjectIds,
-        });
-
+        }) as QuestionWithTopicName[];
         if (generatedQuestions.length === 0) {
             throw new BadRequestError('Not enough questions available for this mode');
         }
@@ -196,8 +199,8 @@ export class QuizSessionService {
                 .where(eq(practiceSessions.id, sessionId));
 
             // 2. Process Gamification (XP, Level, Streaks, Badges)
-            // We cast to any because the session object is structurally compatible but might have minor type differences
-            await this.gamificationService.processSessionGamification(session.userId, completedSession as any, tx);
+            // We cast to PracticeSession to ensure type compatibility
+            await this.gamificationService.processSessionGamification(session.userId, completedSession as PracticeSession, tx);
 
             // 3. Update user question history
             for (const ans of answers) {

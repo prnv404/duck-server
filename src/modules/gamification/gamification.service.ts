@@ -15,6 +15,8 @@ import {
     type Badge,
 } from '@/database/schema';
 import { ServiceHelper } from '@/common/utils';
+import { BadgeCriteria, DrizzleTransaction } from './types/gamification.types';
+import { UserStats } from '@/database/schema';
 
 export interface StreakCalendarData {
     currentStreak: number;
@@ -26,12 +28,12 @@ export interface StreakCalendarData {
 export class GamificationService {
     private readonly logger = new Logger(GamificationService.name);
 
-    constructor(@Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB) {}
+    constructor(@Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB) { }
 
     // ──────────────────────────────────────────────────────────────────────
     // Orchestrator
     // ──────────────────────────────────────────────────────────────────────
-    async processSessionGamification(userId: string, session: PracticeSession, tx: any) {
+    async processSessionGamification(userId: string, session: PracticeSession, tx: DrizzleTransaction) {
         // 1. Update XP and Level
         await this.updateXpAndLevel(tx, userId, session);
 
@@ -48,14 +50,16 @@ export class GamificationService {
     // ──────────────────────────────────────────────────────────────────────
     // Fully Dynamic Badge Evaluation — Add 1000 badges → just works
     // ──────────────────────────────────────────────────────────────────────
-    public async evaluateAllBadgesDynamically(tx: any, userId: string, session: any) {
-        const unlocked: any[] = [];
+    public async evaluateAllBadgesDynamically(tx: DrizzleTransaction, userId: string, session: PracticeSession) {
+        const unlocked: Badge[] = [];
         const stats = await tx.query.userStats.findFirst({ where: eq(userStats.userId, userId) });
+
+        if (!stats) return [];
 
         const allBadges = await tx.query.badges.findMany();
 
         for (const badge of allBadges) {
-            const criteria = badge.unlockCriteria as any;
+            const criteria = badge.unlockCriteria as unknown as BadgeCriteria;
 
             const existing = await tx.query.userBadges.findFirst({
                 where: and(eq(userBadges.userId, userId), eq(userBadges.badgeId, badge.id)),
@@ -102,14 +106,14 @@ export class GamificationService {
     // ──────────────────────────────────────────────────────────────────────
     // Dynamic Criteria Evaluator — One function for ALL badge types
     // ──────────────────────────────────────────────────────────────────────
-    private async evaluateCriteria(tx: any, userId: string, session: any, stats: any, criteria: any): Promise<boolean> {
+    private async evaluateCriteria(tx: DrizzleTransaction, userId: string, session: PracticeSession, stats: UserStats, criteria: BadgeCriteria): Promise<boolean> {
         switch (criteria.type) {
             case 'streak':
                 return stats.currentStreak >= (criteria.days ?? 0);
 
             case 'accuracy':
                 return (
-                    session.accuracy >= (criteria.percentage ?? 0) && session.questionsAttempted >= (criteria.min_questions ?? 0)
+                    parseFloat(session.accuracy) >= (criteria.percentage ?? 0) && session.questionsAttempted >= (criteria.min_questions ?? 0)
                 );
 
             case 'quiz_count':
@@ -144,9 +148,11 @@ export class GamificationService {
     // ──────────────────────────────────────────────────────────────────────
     // Keep your existing helpers (unchanged)
     // ──────────────────────────────────────────────────────────────────────
-    public async updateXpAndLevel(tx: any, userId: string, session: any) {
+    public async updateXpAndLevel(tx: DrizzleTransaction, userId: string, session: PracticeSession) {
         const stats = await tx.query.userStats.findFirst({ where: eq(userStats.userId, userId) });
-        const newTotalXp = stats.totalXp + session.xpEarned;
+        if (!stats) return;
+
+        const newTotalXp = stats.totalXp + (session.xpEarned || 0);
         let newLevel = stats.level;
         while (newTotalXp >= this.xpRequiredForLevel(newLevel + 1)) newLevel++;
 
@@ -160,7 +166,7 @@ export class GamificationService {
                 totalQuestionsAttempted: sql`${userStats.totalQuestionsAttempted} + ${session.questionsAttempted}`,
                 totalCorrectAnswers: sql`${userStats.totalCorrectAnswers} + ${session.correctAnswers}`,
                 overallAccuracy: sql`ROUND(((${userStats.totalCorrectAnswers} + ${session.correctAnswers})::decimal / NULLIF((${userStats.totalQuestionsAttempted} + ${session.questionsAttempted}), 0)) * 100, 2)`,
-                totalPracticeTimeMinutes: sql`${userStats.totalPracticeTimeMinutes} + ${Math.floor(session.timeSpentSeconds / 60)}`,
+                totalPracticeTimeMinutes: sql`${userStats.totalPracticeTimeMinutes} + ${Math.floor((session.timeSpentSeconds || 0) / 60)}`,
             })
             .where(eq(userStats.userId, userId));
     }
@@ -171,7 +177,7 @@ export class GamificationService {
         return total;
     }
 
-    public async maintainStreak(tx: any, userId: string, dateArg: Date, session: any) {
+    public async maintainStreak(tx: DrizzleTransaction, userId: string, dateArg: Date, session: PracticeSession) {
         const today = new Date(dateArg);
         today.setHours(0, 0, 0, 0);
 
@@ -197,6 +203,8 @@ export class GamificationService {
         });
 
         const stats = await tx.query.userStats.findFirst({ where: eq(userStats.userId, userId) });
+        if (!stats) return;
+
         const newStreak = yesterdayEntry ? stats.currentStreak + 1 : 1;
 
         await tx.insert(streakCalendar).values({
@@ -204,7 +212,7 @@ export class GamificationService {
             activityDate: today,
             quizzesCompleted: 1,
             questionsAnswered: session.questionsAttempted,
-            xpEarned: session.xpEarned,
+            xpEarned: session.xpEarned || 0,
         });
 
         await tx

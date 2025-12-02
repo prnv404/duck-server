@@ -8,11 +8,14 @@ import {
     QuestionResponseDto,
 } from './dto/practice.dto';
 import { JwtRestAuthGuard } from '@/common/guards/jwt-rest.guard';
+import type { AuthenticatedRequest } from '@/common/types/request.types';
+import type { QuestionWithAnswers } from '@/modules/question/question.service';
+import type { QuestionWithTopicName } from './practice.service';
 
 @Controller('practice')
 @UseGuards(JwtRestAuthGuard)
 export class PracticeController {
-    constructor(private readonly practiceService: QuizSessionService) {}
+    constructor(private readonly practiceService: QuizSessionService) { }
 
     /**
      * Create a new practice session
@@ -20,15 +23,16 @@ export class PracticeController {
      */
     @Post('sessions')
     @HttpCode(HttpStatus.CREATED)
-    async createSession(@Req() req: any, @Body() dto: CreateSessionDto): Promise<PracticeSessionResponseDto> {
+    async createSession(@Req() req: AuthenticatedRequest, @Body() dto: CreateSessionDto): Promise<PracticeSessionResponseDto> {
         const session = await this.practiceService.createPracticeSession({
             userId: req.user.id,
             ...dto,
         });
 
-        const questions: QuestionResponseDto[] = session.questions.map((q) => ({
+        const questions: QuestionResponseDto[] = session.questions.map((q: QuestionWithTopicName) => ({
             id: q.id,
             topicId: q.topicId,
+            topicName: q.topicName,
             questionText: q.questionText,
             explanation: q.explanation,
             difficulty: q.difficulty,
@@ -40,21 +44,19 @@ export class PracticeController {
             downvotes: q.downvotes,
             timesAttempted: q.timesAttempted,
             timesCorrect: q.timesCorrect,
-            answerOptions:
-                (q as any).answerOptions?.map((opt: any) => ({
-                    id: opt.id,
-                    questionId: opt.questionId,
-                    optionText: opt.optionText,
-                    isCorrect: opt.isCorrect,
-                    displayOrder: opt.displayOrder,
-                })) || [],
+            answerOptions: q.answerOptions.map((opt) => ({
+                id: opt.id,
+                questionId: opt.questionId,
+                optionText: opt.optionText,
+                isCorrect: opt.isCorrect,
+                displayOrder: opt.optionOrder ?? 0,
+            })),
         }));
 
         return {
             id: session.id,
             userId: session.userId,
             sessionType: session.sessionType,
-            topicId: session.topicId,
             totalQuestions: session.totalQuestions,
             questionsAttempted: session.questionsAttempted,
             correctAnswers: session.correctAnswers,
@@ -75,7 +77,7 @@ export class PracticeController {
      */
     @Get('sessions/active')
     @HttpCode(HttpStatus.OK)
-    async getActiveSession(@Req() req: any): Promise<PracticeSessionResponseDto | null> {
+    async getActiveSession(@Req() req: AuthenticatedRequest): Promise<PracticeSessionResponseDto | null> {
         const session = await this.practiceService.getActiveSession(req.user.id);
         if (!session) return null;
 

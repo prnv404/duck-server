@@ -2,10 +2,11 @@ import { Controller, Get, Param, UseGuards, Req, HttpCode, HttpStatus } from '@n
 import { CurriculumService } from './curriculum.service';
 import { SubjectResponseDto, TopicResponseDto, SubjectAccuracyResponseDto } from './dto/curriculum.dto';
 import { JwtRestAuthGuard } from '@/common/guards/jwt-rest.guard';
+import type { AuthenticatedRequest } from '@/common/types/request.types';
 
 @Controller('curriculum')
 export class CurriculumController {
-    constructor(private readonly curriculumService: CurriculumService) {}
+    constructor(private readonly curriculumService: CurriculumService) { }
 
     /**
      * Get all subjects
@@ -95,7 +96,7 @@ export class CurriculumController {
     @Get('my-accuracy')
     @UseGuards(JwtRestAuthGuard)
     @HttpCode(HttpStatus.OK)
-    async getMySubjectAccuracy(@Req() req: any): Promise<SubjectAccuracyResponseDto[]> {
+    async getMySubjectAccuracy(@Req() req: AuthenticatedRequest): Promise<SubjectAccuracyResponseDto[]> {
         const accuracy = await this.curriculumService.getSubjectWiseAccuracy(req.user.id);
         return accuracy.map((item) => ({
             subjectId: item.subjectId,
