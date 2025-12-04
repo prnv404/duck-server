@@ -54,6 +54,8 @@ export const auth = betterAuth({
         'duck://*', // Production app scheme with paths
         'https://delia-unsigneted-marcela.ngrok-free.dev',
         'https://delia-unsigneted-marcela.ngrok-free.dev/*',
+        'https://duck-server-production.up.railway.app',
+        'https://duck-server-production.up.railway.app/*'
     ],
     // Enable Bearer token authentication for mobile clients
     advanced: {
