@@ -34,11 +34,11 @@ export interface UserTopicProgressWithId {
 
 @Injectable()
 export class QuestionService {
-    constructor(@Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB) { }
+    constructor(@Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB) {}
 
     async generateQuestions(dto: CreateSessionInput & { count: number }): Promise<QuestionWithAnswers[]> {
         const { userId, count = 15, type, subjectIds } = dto;
-        const preferences = await this.getUserPreferences(userId) as UserQuizPreferences;
+        const preferences = (await this.getUserPreferences(userId)) as UserQuizPreferences;
         const baseConditions = this.getBaseExclusions(userId, preferences);
 
         let questions: Question[];

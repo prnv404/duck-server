@@ -1,6 +1,6 @@
-import { pgTable, uuid, varchar, date, integer, timestamp, index, unique } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, date, text,integer, timestamp, index, unique } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { users } from './users'; // Import users schema
+import { user } from './users'; // Import users schema
 import { relations } from 'drizzle-orm';
 
 export const leaderboardEntries = pgTable(
@@ -11,9 +11,9 @@ export const leaderboardEntries = pgTable(
             .default(sql`gen_random_uuid()`),
 
         // Foreign Key
-        userId: uuid('user_id')
+        userId: text('user_id')
             .notNull()
-            .references(() => users.id, { onDelete: 'cascade' }),
+            .references(() => user.id, { onDelete: 'cascade' }),
 
         // Period Details
         periodType: varchar('period_type', { length: 20 }).notNull(), // 'weekly', 'monthly', 'all_time'
@@ -54,8 +54,8 @@ export type NewLeaderboardEntry = typeof leaderboardEntries.$inferInsert;
 
 export const leaderboardEntriesRelations = relations(leaderboardEntries, ({ one }) => ({
     // The entry belongs to ONE user
-    user: one(users, {
+    user: one(user, {
         fields: [leaderboardEntries.userId],
-        references: [users.id],
+        references: [user.id],
     }),
 }));

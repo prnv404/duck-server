@@ -1,6 +1,6 @@
-import { pgTable, uuid, varchar, integer, timestamp, boolean, decimal } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, integer, timestamp, boolean, decimal } from 'drizzle-orm/pg-core';
 import { sql, relations } from 'drizzle-orm';
-import { users } from './users'; // Import users schema
+import { user } from './users'; // Import users schema
 
 export const userQuizPreferences = pgTable('user_quiz_preferences', {
     id: uuid('id')
@@ -8,10 +8,10 @@ export const userQuizPreferences = pgTable('user_quiz_preferences', {
         .default(sql`gen_random_uuid()`),
 
     // Foreign Key (One-to-One Relationship)
-    userId: uuid('user_id')
+    userId: text('user_id')
         .unique() // Enforces the UNIQUE constraint
         .notNull()
-        .references(() => users.id, { onDelete: 'cascade' }),
+        .references(() => user.id, { onDelete: 'cascade' }),
 
     // Balance Strategy (Renamed from balanceStrategy)
     defaultBalanceStrategy: varchar('default_balance_strategy', { length: 50 }).default('balanced').notNull(),
@@ -55,9 +55,9 @@ export type NewUserQuizPreference = typeof userQuizPreferences.$inferInsert;
 
 export const userQuizPreferencesRelations = relations(userQuizPreferences, ({ one }) => ({
     // The preference entry belongs to ONE user
-    user: one(users, {
+    user: one(user, {
         fields: [userQuizPreferences.userId],
-        references: [users.id],
+        references: [user.id],
     }),
 }));
 

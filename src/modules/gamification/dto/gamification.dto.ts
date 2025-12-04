@@ -33,7 +33,6 @@ export interface StreakDataDto {
 
 export interface LeaderboardEntryDto {
     userId: string;
-    username: string;
     fullName?: string | null;
     avatarUrl?: string | null;
     xpEarned: number;

@@ -1,6 +1,6 @@
-import { pgTable, uuid, integer, decimal, timestamp, index, unique } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, integer, text, decimal, timestamp, index, unique } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { users } from './users';
+import { user } from './users';
 import { topics } from './curriculum';
 import { relations } from 'drizzle-orm';
 
@@ -12,9 +12,9 @@ export const userTopicProgress = pgTable(
             .default(sql`gen_random_uuid()`),
 
         // Foreign Keys
-        userId: uuid('user_id')
+        userId: text('user_id')
             .notNull()
-            .references(() => users.id, { onDelete: 'cascade' }),
+            .references(() => user.id, { onDelete: 'cascade' }),
 
         topicId: uuid('topic_id')
             .notNull()
@@ -46,9 +46,9 @@ export type UserTopicProgress = typeof userTopicProgress.$inferSelect;
 export type NewUserTopicProgress = typeof userTopicProgress.$inferInsert;
 
 export const userTopicProgressRelations = relations(userTopicProgress, ({ one }) => ({
-    user: one(users, {
+    user: one(user, {
         fields: [userTopicProgress.userId],
-        references: [users.id],
+        references: [user.id],
     }),
     topic: one(topics, {
         fields: [userTopicProgress.topicId],

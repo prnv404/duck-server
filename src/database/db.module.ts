@@ -5,7 +5,7 @@ import { drizzle, NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { upstashCache } from 'drizzle-orm/cache/upstash';
 import * as schema from './schema';
-import { EnvService } from 'src/config/config.service';
+import { EnvService } from '@/config/env/config.service';
 
 import { RedisService } from './redis/redis.service';
 import { Redis } from '@upstash/redis';

@@ -1,15 +1,12 @@
-import { Controller, Get, Param, Query, UseGuards, Req, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Query, HttpCode, HttpStatus, Inject } from '@nestjs/common';
 import { GamificationService } from './gamification.service';
 import { BadgeResponseDto, StreakDataDto, LeaderboardEntryDto } from './dto/gamification.dto';
-import { JwtRestAuthGuard } from '@/common/guards/jwt-rest.guard';
-import { Inject } from '@nestjs/common';
 import * as Database from '@/database';
-import { userBadges, badges, leaderboardEntries, users } from '@/database/schema';
+import { userBadges, badges, leaderboardEntries, user } from '@/database/schema';
 import { eq, and, desc } from 'drizzle-orm';
-import type { AuthenticatedRequest } from '@/common/types/request.types';
+import { Session, type UserSession, AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
 @Controller('gamification')
-@UseGuards(JwtRestAuthGuard)
 export class GamificationController {
     constructor(
         private readonly gamificationService: GamificationService,
@@ -22,7 +19,7 @@ export class GamificationController {
      */
     @Get('my-badges')
     @HttpCode(HttpStatus.OK)
-    async getMyBadges(@Req() req: AuthenticatedRequest): Promise<BadgeResponseDto[]> {
+    async getMyBadges(@Session() session: UserSession): Promise<BadgeResponseDto[]> {
         const userBadgesList = await this.db
             .select({
                 badge: badges,
@@ -30,7 +27,7 @@ export class GamificationController {
             })
             .from(userBadges)
             .innerJoin(badges, eq(userBadges.badgeId, badges.id))
-            .where(eq(userBadges.userId, req.user.id));
+            .where(eq(userBadges.userId, session.user.id));
 
         return userBadgesList.map((item) => ({
             id: item.badge.id,
@@ -52,10 +49,10 @@ export class GamificationController {
      */
     @Get('badges')
     @HttpCode(HttpStatus.OK)
-    async getAllBadges(@Req() req: AuthenticatedRequest): Promise<BadgeResponseDto[]> {
+    async getAllBadges(@Session() session: UserSession): Promise<BadgeResponseDto[]> {
         const allBadges = await this.db.select().from(badges);
         const unlockedBadgeIds = (
-            await this.db.select({ badgeId: userBadges.badgeId }).from(userBadges).where(eq(userBadges.userId, req.user.id))
+            await this.db.select({ badgeId: userBadges.badgeId }).from(userBadges).where(eq(userBadges.userId, session.user.id))
         ).map((b) => b.badgeId);
 
         return allBadges.map((badge) => ({
@@ -77,8 +74,8 @@ export class GamificationController {
      */
     @Get('my-streak')
     @HttpCode(HttpStatus.OK)
-    async getMyStreak(@Req() req: AuthenticatedRequest): Promise<StreakDataDto> {
-        const streakData = await this.gamificationService.getStreakCalendar(req.user.id);
+    async getMyStreak(@Session() session: UserSession): Promise<StreakDataDto> {
+        const streakData = await this.gamificationService.getStreakCalendar(session.user.id);
         return {
             currentStreak: streakData.currentStreak,
             longestStreak: streakData.longestStreak,
@@ -99,6 +96,7 @@ export class GamificationController {
      * GET /api/v1/gamification/leaderboard?period=weekly&limit=50
      */
     @Get('leaderboard')
+    @AllowAnonymous()
     @HttpCode(HttpStatus.OK)
     async getLeaderboard(
         @Query('period') period: string = 'weekly',
@@ -109,24 +107,18 @@ export class GamificationController {
         const leaderboard = await this.db
             .select({
                 userId: leaderboardEntries.userId,
-                username: users.username,
-                fullName: users.fullName,
-                avatarUrl: users.avatarUrl,
                 xpEarned: leaderboardEntries.xpEarned,
                 quizzesCompleted: leaderboardEntries.quizzesCompleted,
                 rank: leaderboardEntries.rank,
             })
             .from(leaderboardEntries)
-            .innerJoin(users, eq(leaderboardEntries.userId, users.id))
+            .innerJoin(user, eq(leaderboardEntries.userId, user.id))
             .where(eq(leaderboardEntries.periodType, period))
             .orderBy(desc(leaderboardEntries.xpEarned))
             .limit(limitNum);
 
         return leaderboard.map((entry) => ({
             userId: entry.userId,
-            username: entry.username,
-            fullName: entry.fullName,
-            avatarUrl: entry.avatarUrl,
             xpEarned: entry.xpEarned,
             quizzesCompleted: entry.quizzesCompleted,
             rank: entry.rank,
@@ -139,29 +131,26 @@ export class GamificationController {
      */
     @Get('my-rank')
     @HttpCode(HttpStatus.OK)
-    async getMyRank(@Req() req: AuthenticatedRequest, @Query('period') period: string = 'weekly'): Promise<LeaderboardEntryDto | null> {
+    async getMyRank(
+        @Session() session: UserSession,
+        @Query('period') period: string = 'weekly',
+    ): Promise<LeaderboardEntryDto | null> {
         const [entry] = await this.db
             .select({
                 userId: leaderboardEntries.userId,
-                username: users.username,
-                fullName: users.fullName,
-                avatarUrl: users.avatarUrl,
                 xpEarned: leaderboardEntries.xpEarned,
                 quizzesCompleted: leaderboardEntries.quizzesCompleted,
                 rank: leaderboardEntries.rank,
             })
             .from(leaderboardEntries)
-            .innerJoin(users, eq(leaderboardEntries.userId, users.id))
-            .where(and(eq(leaderboardEntries.userId, req.user.id), eq(leaderboardEntries.periodType, period)))
+            .innerJoin(user, eq(leaderboardEntries.userId, user.id))
+            .where(and(eq(leaderboardEntries.userId, session.user.id), eq(leaderboardEntries.periodType, period)))
             .limit(1);
 
         if (!entry) return null;
 
         return {
             userId: entry.userId,
-            username: entry.username,
-            fullName: entry.fullName,
-            avatarUrl: entry.avatarUrl,
             xpEarned: entry.xpEarned,
             quizzesCompleted: entry.quizzesCompleted,
             rank: entry.rank,

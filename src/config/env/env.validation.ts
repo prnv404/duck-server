@@ -1,6 +1,6 @@
 // src/config/validateEnv.ts
-import { envSchema, EnvConfig } from './env.schema';
 import { z } from 'zod';
+import { EnvConfig, envSchema } from './env.schema';
 
 export function validateEnv(config: Record<string, unknown>): EnvConfig {
     const parsed = envSchema.safeParse(config);

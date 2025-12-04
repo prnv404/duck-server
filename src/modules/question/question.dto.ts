@@ -25,7 +25,6 @@ export class GenerateQuestionDto {
 }
 
 export class BatchApproveDto {
-
     @IsArray()
     queueIds: string[];
 }

@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bull';
 import { ConfigModule } from '@nestjs/config';
-import { EnvService } from '@/config/config.service';
+import { EnvService } from '@/config/env/config.service';
 import { createIORedisFromUpstash } from './redis.adapter';
 import { QuestionGenerationProcessor } from './processors/question-generation.processor';
 import { AudioProcessingProcessor } from './processors/audio-processing.processor';

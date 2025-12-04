@@ -19,4 +19,8 @@ export interface BadgeCriteria {
 /**
  * Drizzle Transaction Type
  */
-export type DrizzleTransaction = PgTransaction<PostgresJsQueryResultHKT, typeof schema, ExtractTablesWithRelations<typeof schema>>;
+export type DrizzleTransaction = PgTransaction<
+    PostgresJsQueryResultHKT,
+    typeof schema,
+    ExtractTablesWithRelations<typeof schema>
+>;

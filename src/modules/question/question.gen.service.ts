@@ -20,7 +20,7 @@ export class QuestionGenerationService {
         private registry: IntegrationRegistry,
         @Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB,
         @InjectQueue('audio-processing') private audioQueue: Queue,
-    ) { }
+    ) {}
 
     async generateQuestions(input: { prompt: string; topicId: string; model?: string; difficulty?: number; count?: number }) {
         const gemini = this.registry.get<GeminiIntegration>('gemini');
@@ -54,35 +54,28 @@ export class QuestionGenerationService {
         };
     }
 
-
     async approveQuestions(queueIds: string[]) {
         const results: ApprovalResult[] = [];
 
         for (const queueId of queueIds) {
             try {
                 // 1. Fetch Queue Item
-                const [queueItem] = await this.db
-                    .select()
-                    .from(questionQueue)
-                    .where(eq(questionQueue.id, queueId));
+                const [queueItem] = await this.db.select().from(questionQueue).where(eq(questionQueue.id, queueId));
 
                 if (!queueItem) {
                     results.push({
                         queueId,
                         success: false,
-                        message: "Queue item not found",
+                        message: 'Queue item not found',
                     });
                     continue;
                 }
 
                 const questionData = queueItem.question as Pick<
                     Question,
-                    "questionText" | "explanation" | "difficulty" | "points"
+                    'questionText' | 'explanation' | 'difficulty' | 'points'
                 > & {
-                    options: Pick<
-                        AnswerOption,
-                        "optionText" | "isCorrect" | "optionOrder"
-                    >[];
+                    options: Pick<AnswerOption, 'optionText' | 'isCorrect' | 'optionOrder'>[];
                 };
 
                 // 2. Move to Live Questions Table (Transaction per item)
@@ -120,7 +113,7 @@ export class QuestionGenerationService {
                         .update(questionQueue)
                         .set({
                             is_approved: true,
-                            status: "pending_audio",
+                            status: 'pending_audio',
                             questionId: newQuestion.id,
                         })
                         .where(eq(questionQueue.id, queueId));
@@ -136,10 +129,9 @@ export class QuestionGenerationService {
                         {
                             priority: 1,
                             removeOnComplete: true,
-                        }
+                        },
                     );
                 }
-
 
                 results.push({
                     queueId,
@@ -147,12 +139,11 @@ export class QuestionGenerationService {
                     questionId: newQuestion.id,
                     // jobId: job.id.toString(),
                 });
-
             } catch (err) {
                 results.push({
                     queueId,
                     success: false,
-                    message: err?.message ?? "Unknown error",
+                    message: err?.message ?? 'Unknown error',
                 });
             }
         }
@@ -160,10 +151,9 @@ export class QuestionGenerationService {
         return {
             success: true,
             results,
-            message: "Batch approval complete",
+            message: 'Batch approval complete',
         };
     }
-
 
     async rejectQuestion(queueId: string) {
         const [queueItem] = await this.db.select().from(questionQueue).where(eq(questionQueue.id, queueId));

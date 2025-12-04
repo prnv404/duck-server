@@ -1,6 +1,6 @@
-import { pgTable, uuid, integer, date, decimal, timestamp, index, unique } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, integer, text, date, decimal, timestamp, index, unique } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { users } from './users';
+import { user } from './users';
 import { relations } from 'drizzle-orm';
 
 export const userStats = pgTable(
@@ -9,10 +9,10 @@ export const userStats = pgTable(
         id: uuid('id')
             .primaryKey()
             .default(sql`gen_random_uuid()`),
-        userId: uuid('user_id')
+        userId: text('user_id')
             .unique()
             .notNull()
-            .references(() => users.id, { onDelete: 'cascade' }),
+            .references(() => user.id, { onDelete: 'cascade' }),
 
         // XP & Levels
         totalXp: integer('total_xp').default(0).notNull(),
@@ -35,7 +35,7 @@ export const userStats = pgTable(
 
         // Time tracking
         totalPracticeTimeMinutes: integer('total_practice_time_minutes').default(0).notNull(),
-        
+
         createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
         updatedAt: timestamp('updated_at', { mode: 'date' })
             .defaultNow()
@@ -50,8 +50,8 @@ export type NewUserStats = typeof userStats.$inferInsert;
 
 export const userStatsRelations = relations(userStats, ({ one }) => ({
     // A userStats entry belongs to ONE user (one-to-one relationship)
-    user: one(users, {
+    user: one(user, {
         fields: [userStats.userId], // The foreign key column in userStats
-        references: [users.id], // The primary key column in users
+        references: [user.id], // The primary key column in users
     }),
 }));

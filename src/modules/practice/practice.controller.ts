@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, UseGuards, Req, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Req, HttpCode, HttpStatus } from '@nestjs/common';
 import { QuizSessionService } from './practice.service';
 import {
     CreateSessionDto,
@@ -7,13 +7,11 @@ import {
     SessionAnswerResponseDto,
     QuestionResponseDto,
 } from './dto/practice.dto';
-import { JwtRestAuthGuard } from '@/common/guards/jwt-rest.guard';
-import type { AuthenticatedRequest } from '@/common/types/request.types';
 import type { QuestionWithAnswers } from '@/modules/question/question.service';
 import type { QuestionWithTopicName } from './practice.service';
+import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
 @Controller('practice')
-@UseGuards(JwtRestAuthGuard)
 export class PracticeController {
     constructor(private readonly practiceService: QuizSessionService) { }
 
@@ -23,9 +21,9 @@ export class PracticeController {
      */
     @Post('sessions')
     @HttpCode(HttpStatus.CREATED)
-    async createSession(@Req() req: AuthenticatedRequest, @Body() dto: CreateSessionDto): Promise<PracticeSessionResponseDto> {
+    async createSession(@Session() _session: UserSession, @Body() dto: CreateSessionDto): Promise<PracticeSessionResponseDto> {
         const session = await this.practiceService.createPracticeSession({
-            userId: req.user.id,
+            userId: _session.user.id,
             ...dto,
         });
 
@@ -77,8 +75,8 @@ export class PracticeController {
      */
     @Get('sessions/active')
     @HttpCode(HttpStatus.OK)
-    async getActiveSession(@Req() req: AuthenticatedRequest): Promise<PracticeSessionResponseDto | null> {
-        const session = await this.practiceService.getActiveSession(req.user.id);
+    async getActiveSession(@Session() _session: UserSession): Promise<PracticeSessionResponseDto | null> {
+        const session = await this.practiceService.getActiveSession(_session.user.id);
         if (!session) return null;
 
         return {

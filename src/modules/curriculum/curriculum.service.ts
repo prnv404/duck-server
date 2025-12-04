@@ -4,7 +4,7 @@ import * as DatabaseModule from '@/database';
 import { subjects, topics, userTopicProgress } from '@/database/schema';
 import { ServiceHelper } from '@/common/utils';
 import { eq, sql, and, inArray, exists } from 'drizzle-orm'; // Added 'exists' and 'inArray' imports
-import { users } from '@/database/schema/users'; // Import users if needed for joins
+import { user } from '@/database/schema/users'; // Import users if needed for joins
 
 export enum PerformanceCategory {
     WEAK = 'weak',
@@ -39,7 +39,7 @@ export interface SyllabusEntry {
 
 @Injectable()
 export class CurriculumService {
-    constructor(@Inject(DatabaseModule.DRIZZLE) private readonly db: DatabaseModule.DrizzleDB) {}
+    constructor(@Inject(DatabaseModule.DRIZZLE) private readonly db: DatabaseModule.DrizzleDB) { }
 
     async getSubjects() {
         const results = await this.db.select().from(subjects);
@@ -63,6 +63,8 @@ export class CurriculumService {
     }
 
     async getSubjectWiseAccuracy(userId: string): Promise<SubjectAccuracy[]> {
+        
+
         // Build base WHERE conditions
         const baseWhere = and(eq(userTopicProgress.userId, userId), sql`${userTopicProgress.questionsAttempted} > 0`);
 
@@ -72,19 +74,19 @@ export class CurriculumService {
             .select({
                 subjectId: subjects.id,
                 subjectName: subjects.name,
-                accuracy: sql<number>`AVG(${userTopicProgress.accuracy})`.as('accuracy'),
+                avgAccuracy: sql<number>`CAST(AVG(${userTopicProgress.accuracy}) AS FLOAT)`.as('avg_accuracy'),
             })
             .from(userTopicProgress)
             .innerJoin(topics, eq(userTopicProgress.topicId, topics.id))
             .innerJoin(subjects, eq(topics.subjectId, subjects.id))
             .where(fullWhere)
             .groupBy(subjects.id, subjects.name)
-            .orderBy(sql`accuracy DESC`);
+            .orderBy(sql`avg_accuracy DESC`);
 
         const results = await query;
 
         return results.map((row) => {
-            const accuracy = Math.round(row.accuracy * 100) / 100; // Round to 2 decimals
+            const accuracy = Math.round(row.avgAccuracy * 100) / 100; // Round to 2 decimals
             let performance: PerformanceCategory;
 
             if (accuracy < 50) {

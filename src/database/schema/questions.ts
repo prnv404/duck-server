@@ -14,7 +14,6 @@ export const questions = pgTable(
             .primaryKey()
             .default(sql`gen_random_uuid()`),
 
-        qNo: serial('qNo').notNull(),
         // Foreign Key Reference to topics table
         topicId: uuid('topic_id').references(() => topics.id, { onDelete: 'set null' }), // Using SET NULL since no ON DELETE was specified in SQL
 

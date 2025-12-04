@@ -12,7 +12,7 @@ import {
     userStats,
     userTopicProgress,
     streakCalendar,
-    users,
+    user,
     userQuizPreferences,
     type PracticeSession,
     type SessionAnswer,
@@ -41,7 +41,7 @@ export class QuizSessionService {
         private readonly db: Database.DrizzleDB,
         private readonly questionGen: QuestionService,
         private readonly gamificationService: GamificationService,
-    ) { }
+    ) {}
 
     async getPracticeSession(sessionId: string): Promise<PracticeSession> {
         const [sessionResult] = await this.db.select().from(practiceSessions).where(eq(practiceSessions.id, sessionId)).limit(1);
@@ -58,22 +58,22 @@ export class QuizSessionService {
 
         console.log(dto);
 
-        const [user, preferences] = await Promise.all([
-            this.db.select().from(users).where(eq(users.id, userId)).limit(1),
+        const [_user, preferences] = await Promise.all([
+            this.db.select().from(user).where(eq(user.id, userId)).limit(1),
             this.db.select().from(userQuizPreferences).where(eq(userQuizPreferences.userId, userId)).limit(1),
         ]);
 
-        if (!user[0]) throw new NotFoundError('User not found');
+        if (!_user[0]) throw new NotFoundError('User not found');
 
         const questionCount = totalQuestions ?? preferences[0]?.defaultQuestionsPerSession ?? 10;
 
-        const generatedQuestions = await this.questionGen.generateQuestions({
+        const generatedQuestions = (await this.questionGen.generateQuestions({
             userId,
             count: questionCount,
             type,
             topicId,
             subjectIds,
-        }) as QuestionWithTopicName[];
+        })) as QuestionWithTopicName[];
         if (generatedQuestions.length === 0) {
             throw new BadRequestError('Not enough questions available for this mode');
         }

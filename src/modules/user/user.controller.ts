@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Delete, Body, UseGuards, Req, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Patch, Delete, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import { UserService } from './user.service';
 import {
     UpdateUserDto,
@@ -7,34 +7,27 @@ import {
     UserStatsResponseDto,
     StreakCalendarResponseDto,
 } from './dto/rest-user.dto';
-import { JwtRestAuthGuard } from '@/common/guards/jwt-rest.guard';
 import { Throttle } from '@nestjs/throttler';
-import type { AuthenticatedRequest } from '@/common/types/request.types';
+import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
 @Controller('users')
-@UseGuards(JwtRestAuthGuard)
 export class UserController {
     constructor(private readonly userService: UserService) { }
 
-    /**
-     * Get current user profile
-     * GET /api/v1/users/me
-     */
+
+
     @Get('me')
     @HttpCode(HttpStatus.OK)
-    async getMe(@Req() req: AuthenticatedRequest): Promise<UserResponseDto> {
-        const user = await this.userService.getUser(req.user.id);
+    async getMe(@Session() session: UserSession): Promise<UserResponseDto> {
+        const user = await this.userService.getUser(session.user.id);
         return {
             id: user.id,
-            username: user.username,
-            phone: user.phone,
-            fullName: user.fullName,
-            avatarUrl: user.avatarUrl,
-            targetExam: user.targetExam,
-            fcmToken: user.fcmToken,
-            notificationEnabled: user.notificationEnabled,
+            name: user.name,
+            email: user.email,
+            emailVerified: user.emailVerified,
+            image: user.image,
             createdAt: user.createdAt,
-            lastActiveAt: user.lastActiveAt,
+            updatedAt: user.updatedAt,
         };
     }
 
@@ -42,23 +35,15 @@ export class UserController {
      * Update current user profile
      * PATCH /api/v1/users/me
      */
-    @Patch('me')
-    @HttpCode(HttpStatus.OK)
-    async updateMe(@Req() req: AuthenticatedRequest, @Body() dto: UpdateUserDto): Promise<UserResponseDto> {
-        const user = await this.userService.updateUser(req.user.id, dto);
-        return {
-            id: user.id,
-            username: user.username,
-            phone: user.phone,
-            fullName: user.fullName,
-            avatarUrl: user.avatarUrl,
-            targetExam: user.targetExam,
-            fcmToken: user.fcmToken,
-            notificationEnabled: user.notificationEnabled,
-            createdAt: user.createdAt,
-            lastActiveAt: user.lastActiveAt,
-        };
-    }
+    // @Patch('me')
+    // @HttpCode(HttpStatus.OK)
+    // async updateMe(@Session() session: UserSession, @Body() dto: UpdateUserDto): Promise<UserResponseDto> {
+    //     const user = await this.userService.updateUser(session.user.id, dto);
+    //     return {
+    //         id: user.id,
+    //         createdAt: user.createdAt,
+    //     };
+    // }
 
     /**
      * Delete current user account
@@ -67,8 +52,8 @@ export class UserController {
     @Delete('me')
     @HttpCode(HttpStatus.OK)
     @Throttle({ default: { limit: 1, ttl: 60000 } }) // 1 request per minute
-    async deleteMe(@Req() req: AuthenticatedRequest): Promise<{ success: boolean; message: string }> {
-        await this.userService.deleteUser(req.user.id);
+    async deleteMe(@Session() session: UserSession): Promise<{ success: boolean; message: string }> {
+        await this.userService.deleteUser(session.user.id);
         return {
             success: true,
             message: 'Account deleted successfully',
@@ -81,8 +66,8 @@ export class UserController {
      */
     @Get('me/stats')
     @HttpCode(HttpStatus.OK)
-    async getMyStats(@Req() req: AuthenticatedRequest): Promise<UserStatsResponseDto> {
-        const stats = await this.userService.getUserStats(req.user.id);
+    async getMyStats(@Session() session: UserSession): Promise<UserStatsResponseDto> {
+        const stats = await this.userService.getUserStats(session.user.id);
         return {
             id: stats.id,
             userId: stats.userId,
@@ -109,8 +94,8 @@ export class UserController {
      */
     @Patch('me/stats')
     @HttpCode(HttpStatus.OK)
-    async updateMyStats(@Req() req: AuthenticatedRequest, @Body() dto: UpdateUserStatsDto): Promise<UserStatsResponseDto> {
-        const stats = await this.userService.updateUserStats(req.user.id, dto);
+    async updateMyStats(@Session() session: UserSession, @Body() dto: UpdateUserStatsDto): Promise<UserStatsResponseDto> {
+        const stats = await this.userService.updateUserStats(session.user.id, dto);
         return {
             id: stats.id,
             userId: stats.userId,
@@ -137,8 +122,8 @@ export class UserController {
      */
     @Get('me/streak')
     @HttpCode(HttpStatus.OK)
-    async getMyStreak(@Req() req: AuthenticatedRequest): Promise<StreakCalendarResponseDto[]> {
-        const streaks = await this.userService.getStreakCalendar(req.user.id);
+    async getMyStreak(@Session() session: UserSession): Promise<StreakCalendarResponseDto[]> {
+        const streaks = await this.userService.getStreakCalendar(session.user.id);
         return streaks.map((streak) => ({
             id: streak.id,
             userId: streak.userId,

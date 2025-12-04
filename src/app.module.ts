@@ -7,7 +7,6 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { AppConfigModule } from './config/config.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { UserModule } from '@/modules/user/user.module';
-import { AuthModule } from '@/modules/auth/auth.module';
 import { CurriculumModule } from '@/modules/curriculum/curriculum.module';
 import { QuestionModule } from '@/modules/question/question.module';
 import { PracticeModule } from '@/modules/practice/practice.module';
@@ -15,6 +14,8 @@ import { GamificationModule } from '@/modules/gamification/gamification.module';
 import { IntegrationModule } from './integrations/integration.module';
 import { AppController } from './app.controller';
 import { RequestLoggerInterceptor } from './common/interceptors/request-logger.interceptor';
+import { AuthModule } from '@thallesp/nestjs-better-auth';
+import { auth } from './config/auth/auth';
 
 @Module({
     imports: [
@@ -26,9 +27,9 @@ import { RequestLoggerInterceptor } from './common/interceptors/request-logger.i
                 limit: 100, // 100 requests per minute (global default)
             },
         ]),
+        AuthModule.forRoot({ auth }),
         IntegrationModule,
         UserModule,
-        AuthModule,
         CurriculumModule,
         QuestionModule,
         PracticeModule,
@@ -55,4 +56,4 @@ import { RequestLoggerInterceptor } from './common/interceptors/request-logger.i
         },
     ],
 })
-export class AppModule {}
+export class AppModule { }

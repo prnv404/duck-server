@@ -2,7 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { IntegrationRegistry } from './core/integration.registry';
 import { StorageIntegration } from './providers/storage/storage.integration';
 import { GeminiIntegration } from './providers/gemini/gemini.integration';
-import { EnvService } from '@/config/config.service';
+import { EnvService } from '@/config/env/config.service';
 import { ConfigModule } from '@nestjs/config';
 
 @Global()

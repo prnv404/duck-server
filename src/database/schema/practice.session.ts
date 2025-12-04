@@ -1,6 +1,6 @@
-import { pgTable, uuid, varchar, integer, decimal, timestamp, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, integer,text, decimal, timestamp, index } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { users } from './users'; // Import users schema
+import { user } from './users'; // Import users schema
 import { topics } from './curriculum'; // Import topics schema
 import { relations } from 'drizzle-orm';
 import { sessionAnswers } from './session.answers';
@@ -14,9 +14,9 @@ export const practiceSessions = pgTable(
             .default(sql`gen_random_uuid()`),
 
         // Foreign Key to users table
-        userId: uuid('user_id')
+        userId: text('user_id')
             .notNull()
-            .references(() => users.id, { onDelete: 'cascade' }),
+            .references(() => user.id, { onDelete: 'cascade' }),
 
         // Session Type
         sessionType: varchar('session_type', { length: 50 }).default('random').notNull(),
@@ -72,9 +72,9 @@ export type PracticeSession = typeof practiceSessions.$inferSelect;
 export type NewPracticeSession = typeof practiceSessions.$inferInsert;
 
 export const practiceSessionsRelations = relations(practiceSessions, ({ one, many }) => ({
-    user: one(users, {
+    user: one(user, {
         fields: [practiceSessions.userId],
-        references: [users.id],
+        references: [user.id],
     }),
     topic: one(topics, {
         fields: [practiceSessions.topicId],

@@ -1,8 +1,8 @@
-import { pgTable, uuid, timestamp, decimal, index, unique } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, timestamp, text,decimal, index, unique } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 // Assuming you have imported your users and badges schemas correctly
-import { users } from './users';
+import { user } from './users';
 import { badges } from './badges';
 import { relations } from 'drizzle-orm';
 
@@ -14,9 +14,9 @@ export const userBadges = pgTable(
             .default(sql`gen_random_uuid()`),
 
         // Foreign Key to users table
-        userId: uuid('user_id')
+        userId: text('user_id')
             .notNull()
-            .references(() => users.id, { onDelete: 'cascade' }),
+            .references(() => user.id, { onDelete: 'cascade' }),
 
         // Foreign Key to badges table
         badgeId: uuid('badge_id')
@@ -48,9 +48,9 @@ export type UserBadge = typeof userBadges.$inferSelect;
 export type NewUserBadge = typeof userBadges.$inferInsert;
 
 export const userBadgesRelations = relations(userBadges, ({ one }) => ({
-    user: one(users, {
+    user: one(user, {
         fields: [userBadges.userId],
-        references: [users.id],
+        references: [user.id],
     }),
     badge: one(badges, {
         fields: [userBadges.badgeId],

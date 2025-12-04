@@ -1,39 +1,20 @@
-import { IsOptional, IsString, IsBoolean, IsUrl, Length, Matches, IsInt, Min } from 'class-validator';
+import { IsOptional, IsString, IsUrl, Length, IsInt, Min } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 /**
  * DTO for updating user profile
+ * Only includes fields that Better Auth allows to be updated
  */
 export class UpdateUserDto {
     @IsOptional()
     @IsString()
-    @Transform(({ value }) => value?.trim().toLowerCase())
-    @Length(3, 30)
-    @Matches(/^[a-z0-9_]+$/, { message: 'Username can only contain letters, numbers, and underscores' })
-    username?: string;
-
-    @IsOptional()
-    @IsString()
     @Transform(({ value }) => value?.trim())
-    @Length(2, 100)
-    fullName?: string;
+    @Length(1, 100)
+    name?: string;
 
     @IsOptional()
-    @IsUrl({}, { message: 'Avatar must be a valid URL' })
-    avatarUrl?: string;
-
-    @IsOptional()
-    @IsString()
-    @Transform(({ value }) => value?.trim())
-    targetExam?: string;
-
-    @IsOptional()
-    @IsString()
-    fcmToken?: string;
-
-    @IsOptional()
-    @IsBoolean()
-    notificationEnabled?: boolean;
+    @IsUrl({}, { message: 'Image must be a valid URL' })
+    image?: string;
 }
 
 /**
@@ -92,18 +73,16 @@ export class UpdateUserStatsDto {
 
 /**
  * Response DTO for user profile
+ * Matches Better Auth user model
  */
 export interface UserResponseDto {
     id: string;
-    username: string;
-    phone: string;
-    fullName?: string | null;
-    avatarUrl?: string | null;
-    targetExam?: string | null;
-    fcmToken?: string | null;
-    notificationEnabled: boolean;
+    name: string;
+    email: string;
+    emailVerified: boolean;
+    image: string | null;
     createdAt: Date;
-    lastActiveAt?: Date | null;
+    updatedAt: Date;
 }
 
 /**

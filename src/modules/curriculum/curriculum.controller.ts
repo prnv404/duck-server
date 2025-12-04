@@ -1,8 +1,7 @@
-import { Controller, Get, Param, UseGuards, Req, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Param, HttpCode, HttpStatus } from '@nestjs/common';
 import { CurriculumService } from './curriculum.service';
 import { SubjectResponseDto, TopicResponseDto, SubjectAccuracyResponseDto } from './dto/curriculum.dto';
-import { JwtRestAuthGuard } from '@/common/guards/jwt-rest.guard';
-import type { AuthenticatedRequest } from '@/common/types/request.types';
+import { Session, type UserSession, AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
 @Controller('curriculum')
 export class CurriculumController {
@@ -13,6 +12,7 @@ export class CurriculumController {
      * GET /api/v1/curriculum/subjects
      */
     @Get('subjects')
+    @AllowAnonymous()
     @HttpCode(HttpStatus.OK)
     async getSubjects(): Promise<SubjectResponseDto[]> {
         const subjects = await this.curriculumService.getSubjects();
@@ -33,6 +33,7 @@ export class CurriculumController {
      * GET /api/v1/curriculum/subjects/:id
      */
     @Get('subjects/:id')
+    @AllowAnonymous()
     @HttpCode(HttpStatus.OK)
     async getSubjectById(@Param('id') id: string): Promise<SubjectResponseDto> {
         const subject = await this.curriculumService.getSubjectById(id);
@@ -53,6 +54,7 @@ export class CurriculumController {
      * GET /api/v1/curriculum/subjects/:id/topics
      */
     @Get('subjects/:id/topics')
+    @AllowAnonymous()
     @HttpCode(HttpStatus.OK)
     async getTopicsBySubjectId(@Param('id') subjectId: string): Promise<TopicResponseDto[]> {
         const topics = await this.curriculumService.getTopicsBySubjectId(subjectId);
@@ -73,6 +75,7 @@ export class CurriculumController {
      * GET /api/v1/curriculum/topics/:id
      */
     @Get('topics/:id')
+    @AllowAnonymous()
     @HttpCode(HttpStatus.OK)
     async getTopicById(@Param('id') id: string): Promise<TopicResponseDto> {
         const topic = await this.curriculumService.getTopicById(id);
@@ -94,10 +97,9 @@ export class CurriculumController {
      * Requires authentication
      */
     @Get('my-accuracy')
-    @UseGuards(JwtRestAuthGuard)
     @HttpCode(HttpStatus.OK)
-    async getMySubjectAccuracy(@Req() req: AuthenticatedRequest): Promise<SubjectAccuracyResponseDto[]> {
-        const accuracy = await this.curriculumService.getSubjectWiseAccuracy(req.user.id);
+    async getMySubjectAccuracy(@Session() session: UserSession): Promise<SubjectAccuracyResponseDto[]> {
+        const accuracy = await this.curriculumService.getSubjectWiseAccuracy(session.user.id);
         return accuracy.map((item) => ({
             subjectId: item.subjectId,
             subjectName: item.subjectName,

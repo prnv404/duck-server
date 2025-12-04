@@ -1,29 +1,29 @@
 import { Request } from 'express';
 
 /**
- * Payload stored inside the JWT token
- */
-export interface JwtTokenPayload {
-    sub: string;
-    username: string;
-    iat?: number;
-    exp?: number;
-}
-
-/**
- * Authenticated user attached to the request (from JwtStrategy)
- * This matches the User entity structure returned by UserService
+ * Authenticated user from Better Auth session
+ * This matches the User entity structure returned by Better Auth
  */
 export interface AuthenticatedUser {
     id: string;
-    username: string;
-    phone: string;
+    email: string;
+    emailVerified: boolean;
+    name: string;
+    image?: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+    // Additional fields from your schema
+    username?: string;
+    phone?: string | null;
     fullName?: string | null;
-    // Add other fields as needed, or make it partial User
+    targetExam?: string | null;
+    notificationEnabled?: boolean;
+    lastActiveAt?: Date | null;
 }
 
 /**
  * Extended Express Request with authenticated user
+ * Note: Prefer using @Session() decorator from @thallesp/nestjs-better-auth
  */
 export interface AuthenticatedRequest extends Request {
     user: AuthenticatedUser;

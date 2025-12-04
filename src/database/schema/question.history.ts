@@ -1,6 +1,6 @@
-import { pgTable, uuid, integer, timestamp, index, unique } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, integer, text, timestamp, index, unique } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { users } from './users'; // Import users schema
+import { user } from './users'; // Import users schema
 import { questions } from './questions'; // Import questions schema
 import { relations } from 'drizzle-orm';
 
@@ -12,9 +12,9 @@ export const userQuestionHistory = pgTable(
             .default(sql`gen_random_uuid()`),
 
         // Foreign Keys
-        userId: uuid('user_id')
+        userId: text('user_id')
             .notNull()
-            .references(() => users.id, { onDelete: 'cascade' }),
+            .references(() => user.id, { onDelete: 'cascade' }),
 
         questionId: uuid('question_id')
             .notNull()
@@ -40,9 +40,9 @@ export type NewUserQuestionHistory = typeof userQuestionHistory.$inferInsert;
 
 export const userQuestionHistoryRelations = relations(userQuestionHistory, ({ one }) => ({
     // The history entry belongs to ONE user
-    user: one(users, {
+    user: one(user, {
         fields: [userQuestionHistory.userId],
-        references: [users.id],
+        references: [user.id],
     }),
     // The history entry tracks ONE question
     question: one(questions, {

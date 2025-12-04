@@ -1,6 +1,6 @@
-import { pgTable, uuid, date, integer, timestamp, index, unique } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, date, text, integer, timestamp, index, unique } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { users } from './users'; // Assuming 'users' table is defined in './users'
+import { user } from './users'; // Assuming 'users' table is defined in './users'
 import { relations } from 'drizzle-orm';
 
 export const streakCalendar = pgTable(
@@ -11,9 +11,9 @@ export const streakCalendar = pgTable(
             .default(sql`gen_random_uuid()`),
 
         // Foreign Key Reference
-        userId: uuid('user_id')
+        userId: text('user_id')
             .notNull()
-            .references(() => users.id, { onDelete: 'cascade' }),
+            .references(() => user.id, { onDelete: 'cascade' }),
 
         activityDate: date('activity_date', { mode: 'date' }).notNull(),
 
@@ -39,8 +39,8 @@ export type StreakCalendar = typeof streakCalendar.$inferSelect;
 export type NewStreakCalendar = typeof streakCalendar.$inferInsert;
 
 export const streakCalendarRelations = relations(streakCalendar, ({ one }) => ({
-    user: one(users, {
+    user: one(user, {
         fields: [streakCalendar.userId],
-        references: [users.id],
+        references: [user.id],
     }),
 }));

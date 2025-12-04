@@ -28,7 +28,7 @@ export interface StreakCalendarData {
 export class GamificationService {
     private readonly logger = new Logger(GamificationService.name);
 
-    constructor(@Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB) { }
+    constructor(@Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB) {}
 
     // ──────────────────────────────────────────────────────────────────────
     // Orchestrator
@@ -106,14 +106,21 @@ export class GamificationService {
     // ──────────────────────────────────────────────────────────────────────
     // Dynamic Criteria Evaluator — One function for ALL badge types
     // ──────────────────────────────────────────────────────────────────────
-    private async evaluateCriteria(tx: DrizzleTransaction, userId: string, session: PracticeSession, stats: UserStats, criteria: BadgeCriteria): Promise<boolean> {
+    private async evaluateCriteria(
+        tx: DrizzleTransaction,
+        userId: string,
+        session: PracticeSession,
+        stats: UserStats,
+        criteria: BadgeCriteria,
+    ): Promise<boolean> {
         switch (criteria.type) {
             case 'streak':
                 return stats.currentStreak >= (criteria.days ?? 0);
 
             case 'accuracy':
                 return (
-                    parseFloat(session.accuracy) >= (criteria.percentage ?? 0) && session.questionsAttempted >= (criteria.min_questions ?? 0)
+                    parseFloat(session.accuracy) >= (criteria.percentage ?? 0) &&
+                    session.questionsAttempted >= (criteria.min_questions ?? 0)
                 );
 
             case 'quiz_count':

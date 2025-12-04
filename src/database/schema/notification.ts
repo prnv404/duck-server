@@ -1,6 +1,6 @@
 import { pgTable, uuid, varchar, text, timestamp, index } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
-import { users } from './users'; // Import users schema
+import { user } from './users'; // Import users schema
 import { relations } from 'drizzle-orm';
 
 export const notificationQueue = pgTable(
@@ -11,9 +11,9 @@ export const notificationQueue = pgTable(
             .default(sql`gen_random_uuid()`),
 
         // Foreign Key
-        userId: uuid('user_id')
+        userId: text('user_id')
             .notNull()
-            .references(() => users.id, { onDelete: 'cascade' }),
+            .references(() => user.id, { onDelete: 'cascade' }),
 
         // Content & Type
         notificationType: varchar('notification_type', { length: 50 }),
@@ -42,8 +42,8 @@ export type NotificationQueue = typeof notificationQueue.$inferSelect;
 export type NewNotificationQueue = typeof notificationQueue.$inferInsert;
 
 export const notificationQueueRelations = relations(notificationQueue, ({ one }) => ({
-    user: one(users, {
+    user: one(user, {
         fields: [notificationQueue.userId],
-        references: [users.id],
+        references: [user.id],
     }),
 }));

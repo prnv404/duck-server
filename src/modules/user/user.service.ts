@@ -4,7 +4,7 @@ import * as DatabaseModule from '@/database';
 import {
     NewUser,
     User,
-    users,
+    user,
     UserStats,
     userStats,
     userQuizPreferences,
@@ -19,115 +19,104 @@ type DrizzleDB = DatabaseModule.DrizzleDB;
 
 @Injectable()
 export class UserService {
-    constructor(@Inject(DatabaseModule.DRIZZLE) private readonly db: DrizzleDB) {}
+    constructor(@Inject(DatabaseModule.DRIZZLE) private readonly db: DrizzleDB) { }
 
     // ──────────────────────────────────────────────────────────────────────
     // NEW: One-stop method for AuthService — creates user + all defaults
     // ──────────────────────────────────────────────────────────────────────
-    async createNewUser(data: { phone: string; username?: string }): Promise<User> {
-        const { phone, username } = data;
+    // async createNewUser(data: { email: string,name:string}): Promise<User> {
+    //     const {  name ,email} = data;
 
-        // Optional: allow custom username, otherwise generate
-        const finalUsername = username || `user_${phone.slice(-4)}_${Math.floor(Math.random() * 9999)}`;
+    //     // Optional: allow custom username, otherwise generate
 
-        return this.db.transaction(async (tx) => {
-            // 1. Check uniqueness
-            const existing = await tx.query.users.findFirst({
-                where: eq(users.phone, phone),
-            });
+    //     return this.db.transaction(async (tx) => {
+    //         // 1. Check uniqueness
+    //         const existing = await tx.query.user.findFirst({
+    //             where: eq(user.email, email),
+    //         });
 
-            ServiceHelper.ensureUnique(!!existing, 'Phone or username already taken');
+    //         ServiceHelper.ensureUnique(!!existing, 'Email already taken');
 
-            // 2. Create main user
-            const [user] = await tx
-                .insert(users)
-                .values({
-                    phone,
-                    username: finalUsername,
-                    notificationEnabled: true,
-                })
-                .returning();
+    //         // 2. Create main user
+    //         const [_user] = await tx
+    //             .insert(user)
+    //             .values({
+    //                 id: '',    
+    //                 name:"",
+    //                 email: data.email
 
-            if (!user) throw new Error('Failed to create user');
+    //             })
+    //             .returning();
 
-            // 3. Create user_stats (one-to-one)
-            await tx.insert(userStats).values({
-                userId: user.id,
-                totalXp: 0,
-                level: 1,
-                xpToNextLevel: 100,
-                currentStreak: 0,
-                longestStreak: 0,
-                lastActivityDate: null,
-                totalQuizzesCompleted: 0,
-                totalQuestionsAttempted: 0,
-                totalCorrectAnswers: 0,
-                overallAccuracy: '0.00',
-                totalPracticeTimeMinutes: 0,
-            });
+    //         if (!user) throw new Error('Failed to create user');
 
-            // 4. Create user_quiz_preferences (one-to-one)
-            await tx.insert(userQuizPreferences).values({
-                userId: user.id,
-                defaultBalanceStrategy: 'balanced',
-                difficultyAdaptationEnabled: true,
-                excludedSubjectIds: [],
-                preferredSubjectIds: [],
-                avoidRecentQuestionsDays: 7,
-                allowQuestionRepetition: false,
-                defaultQuestionsPerSession: 10,
-                weakAreaThreshold: '70.00',
-                minQuestionsForWeakDetection: 10,
-            });
+    //         // 3. Create user_stats (one-to-one)
+    //         await tx.insert(userStats).values({
+    //             userId: user.id,
+    //             totalXp: 0,
+    //             level: 1,
+    //             xpToNextLevel: 100,
+    //             currentStreak: 0,
+    //             longestStreak: 0,
+    //             lastActivityDate: null,
+    //             totalQuizzesCompleted: 0,
+    //             totalQuestionsAttempted: 0,
+    //             totalCorrectAnswers: 0,
+    //             overallAccuracy: '0.00',
+    //             totalPracticeTimeMinutes: 0,
+    //         });
 
-            // Optional: You can add welcome badge, starter XP, etc. here later
+    //         // 4. Create user_quiz_preferences (one-to-one)
+    //         await tx.insert(userQuizPreferences).values({
+    //             userId: user.id,
+    //             defaultBalanceStrategy: 'balanced',
+    //             difficultyAdaptationEnabled: true,
+    //             excludedSubjectIds: [],
+    //             preferredSubjectIds: [],
+    //             avoidRecentQuestionsDays: 7,
+    //             allowQuestionRepetition: false,
+    //             defaultQuestionsPerSession: 10,
+    //             weakAreaThreshold: '70.00',
+    //             minQuestionsForWeakDetection: 10,
+    //         });
 
-            return user;
-        });
-    }
+    //         // Optional: You can add welcome badge, starter XP, etc. here later
+
+    //         return user;
+    //     });
+    // }
 
     // ──────────────────────────────────────────────────────────────────────
     // Existing methods (unchanged or slightly cleaned)
     // ──────────────────────────────────────────────────────────────────────
-    async createUser(data: NewUser): Promise<User> {
-        const existingUser = await this.db.query.users.findFirst({
-            where: or(eq(users.phone, data.phone), eq(users.username, data.username)),
-        });
+    // async createUser(data: NewUser): Promise<User> {
+    //     const existingUser = await this.db.query.users.findFirst({
+    //         where: eq(users.email, data.email)
+    //     });
 
-        ServiceHelper.ensureUnique(!!existingUser, 'User already exists.');
+    //     ServiceHelper.ensureUnique(!!existingUser, 'User already exists.');
 
-        const [user] = await this.db.insert(users).values(data).returning();
-        await this.db.insert(userStats).values({ userId: user.id });
-        return user;
-    }
+    //     const [user] = await this.db.insert(users).values(data).returning();
+    //     await this.db.insert(userStats).values({ userId: user.id });
+    //     return user;
+    // }
 
     async getUser(id: string): Promise<User> {
-        const user = await this.db.query.users.findFirst({
-            where: eq(users.id, id),
+        const _user = await this.db.query.user.findFirst({
+            where: eq(user.id, id),
         });
 
-        return ServiceHelper.ensureExists(user, id, 'User');
+        return ServiceHelper.ensureExists(_user, id, 'User');
     }
 
-    async updateUser(id: string, data: Partial<User>): Promise<User> {
-        const { id: _, ...updateData } = data;
 
-        const [updatedUser] = await this.db.update(users).set(updateData).where(eq(users.id, id)).returning();
-
-        return ServiceHelper.ensureExists(updatedUser, id, 'User');
-    }
-
-    async findByPhone(phone: string): Promise<User | undefined> {
-        const [user] = await this.db.select().from(users).where(eq(users.phone, phone));
-        return user;
-    }
 
     async findAll(limit = 20, offset = 0): Promise<User[]> {
-        return this.db.select().from(users).limit(limit).offset(offset);
+        return this.db.select().from(user).limit(limit).offset(offset);
     }
 
     async deleteUser(id: string): Promise<User> {
-        const [deletedUser] = await this.db.delete(users).where(eq(users.id, id)).returning();
+        const [deletedUser] = await this.db.delete(user).where(eq(user.id, id)).returning();
 
         return ServiceHelper.ensureExists(deletedUser, id, 'User');
     }

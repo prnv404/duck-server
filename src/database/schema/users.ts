@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, boolean, timestamp, index } from 'drizzle-orm/pg-core';
+import { pgTable, varchar, text, boolean, timestamp, index, uuid } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 import { practiceSessions } from './practice.session';
 import { userStats } from './user.status';
@@ -10,30 +10,95 @@ import { userQuestionHistory } from './question.history';
 import { userQuizPreferences } from './question.preference';
 import { notificationQueue } from './notification';
 
-export const users = pgTable(
-    'users',
+export const user = pgTable("user", {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    email: text("email").notNull().unique(),
+    emailVerified: boolean("email_verified").default(false).notNull(),
+    image: text("image"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+        .defaultNow()
+        .$onUpdate(() => /* @__PURE__ */ new Date())
+        .notNull(),
+});
+
+export const session = pgTable(
+    "session",
     {
-        id: uuid('id')
-            .primaryKey()
-            .default(sql`gen_random_uuid()`),
-        username: varchar('username', { length: 100 }).unique().notNull(),
-        phone: varchar('phone', { length: 255 }).unique().notNull(),
-        fullName: varchar('full_name', { length: 255 }),
-        avatarUrl: text('avatar_url'),
-        targetExam: varchar('target_exam', { length: 50 }),
-        fcmToken: text('fcm_token'),
-        notificationEnabled: boolean('notification_enabled').default(true).notNull(),
-        refreshToken: text('refresh_token'),
-        createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
-        lastActiveAt: timestamp('last_active_at', { mode: 'date' }),
+        id: text("id").primaryKey(),
+        expiresAt: timestamp("expires_at").notNull(),
+        token: text("token").notNull().unique(),
+        createdAt: timestamp("created_at").defaultNow().notNull(),
+        updatedAt: timestamp("updated_at")
+            .$onUpdate(() => /* @__PURE__ */ new Date())
+            .notNull(),
+        ipAddress: text("ip_address"),
+        userAgent: text("user_agent"),
+        userId: text("user_id")
+            .notNull()
+            .references(() => user.id, { onDelete: "cascade" }),
     },
-    (table) => [index('idx_users_phone').on(table.phone), index('idx_users_username').on(table.username)],
+    (table) => [index("session_userId_idx").on(table.userId)],
 );
 
-export type User = typeof users.$inferSelect;
-export type NewUser = typeof users.$inferInsert;
+export const account = pgTable(
+    "account",
+    {
+        id: text("id").primaryKey(),
+        accountId: text("account_id").notNull(),
+        providerId: text("provider_id").notNull(),
+        userId: text("user_id")
+            .notNull()
+            .references(() => user.id, { onDelete: "cascade" }),
+        accessToken: text("access_token"),
+        refreshToken: text("refresh_token"),
+        idToken: text("id_token"),
+        accessTokenExpiresAt: timestamp("access_token_expires_at"),
+        refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
+        scope: text("scope"),
+        password: text("password"),
+        createdAt: timestamp("created_at").defaultNow().notNull(),
+        updatedAt: timestamp("updated_at")
+            .$onUpdate(() => /* @__PURE__ */ new Date())
+            .notNull(),
+    },
+    (table) => [index("account_userId_idx").on(table.userId)],
+);
 
-export const usersRelations = relations(users, ({ one, many }) => ({
+export const verification = pgTable(
+    "verification",
+    {
+        id: text("id").primaryKey(),
+        identifier: text("identifier").notNull(),
+        value: text("value").notNull(),
+        expiresAt: timestamp("expires_at").notNull(),
+        createdAt: timestamp("created_at").defaultNow().notNull(),
+        updatedAt: timestamp("updated_at")
+            .defaultNow()
+            .$onUpdate(() => /* @__PURE__ */ new Date())
+            .notNull(),
+    },
+    (table) => [index("verification_identifier_idx").on(table.identifier)],
+);
+
+
+
+export const sessionRelations = relations(session, ({ one }) => ({
+    user: one(user, {
+        fields: [session.userId],
+        references: [user.id],
+    }),
+}));
+
+export const accountRelations = relations(account, ({ one }) => ({
+    user: one(user, {
+        fields: [account.userId],
+        references: [user.id],
+    }),
+}));
+
+export const usersRelations = relations(user, ({ one, many }) => ({
     userStats: one(userStats),
     streakCalendar: many(streakCalendar),
     userBadges: many(userBadges),
@@ -43,4 +108,9 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     userQuestionHistory: many(userQuestionHistory),
     userQuizPreferences: one(userQuizPreferences),
     notificationQueue: many(notificationQueue),
+    sessions: many(session),
+    accounts: many(account),
 }));
+
+export type User = typeof user.$inferSelect;
+export type NewUser = typeof user.$inferInsert;
