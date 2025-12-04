@@ -8,6 +8,7 @@ import { JobStatusResponse } from '@/queues/job.types';
 import { topics } from '@/database/schema';
 import { eq } from 'drizzle-orm';
 import * as Database from '@/database';
+import { getExamConfig, getLanguageConfig, DEFAULT_CONFIG } from './config/prompt.config';
 
 @Controller('questions')
 export class QuestionController {
@@ -15,7 +16,7 @@ export class QuestionController {
         private readonly questionGenService: QuestionGenerationService,
         @InjectQueue(QUESTION_GENERATION_QUEUE) private questionQueue: Queue,
         @Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB,
-    ) {}
+    ) { }
 
     @Post('generate')
     async generateQuestions(@Body() dto: GenerateQuestionDto) {
@@ -24,6 +25,19 @@ export class QuestionController {
         if (!topic) {
             throw new NotFoundException('Topic not found');
         }
+
+        // Resolve language and examType with defaults
+        const language = dto.language || DEFAULT_CONFIG.language;
+        const examType = dto.examType || DEFAULT_CONFIG.examType;
+        const count = dto.count || DEFAULT_CONFIG.count;
+
+        // Get config summaries
+        const examConfig = getExamConfig(examType);
+        const languageConfig = getLanguageConfig(language);
+
+        // Calculate estimated processing time (approx 3 seconds per question + 2 seconds overhead)
+        const estimatedProcessingTime = count * 3 + 2;
+
         // Add job to queue instead of processing synchronously
         const job = await this.questionQueue.add(
             {
@@ -31,7 +45,9 @@ export class QuestionController {
                 topicId: dto.topicId,
                 model: dto.model,
                 difficulty: dto.difficulty,
-                count: dto.count || 5,
+                count: count,
+                language: language,
+                examType: examType,
             },
             {
                 priority: 2,
@@ -42,6 +58,20 @@ export class QuestionController {
             jobId: job.id.toString(),
             status: 'queued',
             message: 'Question generation started. Use /questions/jobs/:jobId to check status',
+            estimatedProcessingTime: `${estimatedProcessingTime} seconds`,
+            config: {
+                examType: {
+                    id: examConfig.id,
+                    name: examConfig.name,
+                    description: examConfig.description,
+                },
+                language: {
+                    code: languageConfig.code,
+                    name: languageConfig.name,
+                },
+                questionCount: count,
+                difficulty: dto.difficulty || DEFAULT_CONFIG.difficulty,
+            },
         };
     }
 

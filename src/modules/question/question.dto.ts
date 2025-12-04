@@ -1,7 +1,9 @@
-import { IsString, IsOptional, IsNumber, Min, Max, IsUUID, IsArray } from 'class-validator';
+import { IsString, IsOptional, IsNumber, Min, Max, IsUUID, IsArray, IsEnum, MinLength } from 'class-validator';
+import { ExamType, Language } from './config/prompt.config';
 
 export class GenerateQuestionDto {
     @IsString()
+    @MinLength(10, { message: 'Prompt must be at least 10 characters long' })
     prompt: string;
 
     @IsUUID()
@@ -22,6 +24,14 @@ export class GenerateQuestionDto {
     @Min(1)
     @Max(40)
     count?: number;
+
+    @IsOptional()
+    @IsEnum(Language, { message: 'Language must be one of: ml, en, hi' })
+    language?: Language;
+
+    @IsOptional()
+    @IsEnum(ExamType, { message: 'Exam type must be one of: PSC, UPSC, SSC, BANKING, GENERAL' })
+    examType?: ExamType;
 }
 
 export class BatchApproveDto {

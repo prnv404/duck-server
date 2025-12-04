@@ -14,13 +14,56 @@ interface ApprovalResult {
     jobId?: string;
 }
 
+interface QuestionValidationResult {
+    isValid: boolean;
+    errors: string[];
+}
+
+interface QuestionOption {
+    optionText: string;
+    isCorrect: boolean;
+    optionOrder: number;
+}
+
 @Injectable()
 export class QuestionGenerationService {
     constructor(
         private registry: IntegrationRegistry,
         @Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB,
         @InjectQueue('audio-processing') private audioQueue: Queue,
-    ) {}
+    ) { }
+
+    /**
+     * Validates question structure before approval.
+     * Requirements 3.9: Each question must have exactly 4 options with exactly 1 correct answer.
+     */
+    private validateQuestionStructure(options: QuestionOption[] | unknown): QuestionValidationResult {
+        const errors: string[] = [];
+
+        // Check if options is an array
+        if (!Array.isArray(options)) {
+            return {
+                isValid: false,
+                errors: ['Question options must be an array'],
+            };
+        }
+
+        // Check exactly 4 options exist
+        if (options.length !== 4) {
+            errors.push(`Question must have exactly 4 options, but has ${options.length}`);
+        }
+
+        // Count correct options
+        const correctOptions = options.filter((opt) => opt?.isCorrect === true);
+        if (correctOptions.length !== 1) {
+            errors.push(`Question must have exactly 1 correct option, but has ${correctOptions.length}`);
+        }
+
+        return {
+            isValid: errors.length === 0,
+            errors,
+        };
+    }
 
     async generateQuestions(input: { prompt: string; topicId: string; model?: string; difficulty?: number; count?: number }) {
         const gemini = this.registry.get<GeminiIntegration>('gemini');
@@ -78,7 +121,18 @@ export class QuestionGenerationService {
                     options: Pick<AnswerOption, 'optionText' | 'isCorrect' | 'optionOrder'>[];
                 };
 
-                // 2. Move to Live Questions Table (Transaction per item)
+                // 2. Validate question structure (Requirements 3.9)
+                const validation = this.validateQuestionStructure(questionData.options);
+                if (!validation.isValid) {
+                    results.push({
+                        queueId,
+                        success: false,
+                        message: `Invalid question structure: ${validation.errors.join('; ')}`,
+                    });
+                    continue;
+                }
+
+                // 3. Move to Live Questions Table (Transaction per item)
                 let newQuestion;
 
                 await this.db.transaction(async (tx) => {

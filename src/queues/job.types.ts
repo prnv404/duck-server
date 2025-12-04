@@ -4,6 +4,8 @@ export interface GenerateQuestionsJob {
     model?: string;
     difficulty?: number;
     count?: number;
+    language?: string;
+    examType?: string;
 }
 
 export interface ProcessAudioJob {

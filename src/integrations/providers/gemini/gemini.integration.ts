@@ -1,7 +1,13 @@
 import { BaseIntegration } from '../../core/base-integration.interface';
 import { BaseIntegrationConfig } from '../../core/integration-config.interface';
 import { GoogleGenAI } from '@google/genai';
-// Import the Lame class/constructor from the 'node-lame' module
+import {
+    getExamConfig,
+    getLanguageConfig,
+    DEFAULT_CONFIG,
+    ExamTypeConfig,
+    LanguageConfig,
+} from '../../../modules/question/config/prompt.config';
 
 export interface GeminiIntegrationConfig extends BaseIntegrationConfig {
     apiKey: string;
@@ -20,6 +26,26 @@ export interface GeneratedQuestionData {
         optionOrder: number;
     }[];
 }
+
+/**
+ * Request metrics for logging and monitoring
+ * Requirements: 3.7
+ */
+export interface RequestMetrics {
+    duration: number;
+    model: string;
+    questionsRequested: number;
+    questionsGenerated: number;
+    attemptCount: number;
+    success: boolean;
+    error?: string;
+}
+
+/**
+ * Sleep helper function for retry delays
+ * @param ms - Milliseconds to sleep
+ */
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 export class GeminiIntegration implements BaseIntegration<GeminiIntegrationConfig> {
     readonly name = 'gemini';
@@ -70,17 +96,92 @@ export class GeminiIntegration implements BaseIntegration<GeminiIntegrationConfi
     }
 
     /**
+     * Build dynamic system prompt based on exam type and language configuration
+     * Requirements: 3.1, 3.2, 3.3
+     *
+     * @param examType - The exam type (PSC, UPSC, SSC, BANKING, GENERAL)
+     * @param language - The language code (ml, en, hi)
+     * @param count - Number of questions to generate
+     * @param difficulty - Difficulty level (1-3)
+     * @returns Formatted system prompt string
+     */
+    buildSystemPrompt(
+        examType: string = DEFAULT_CONFIG.examType,
+        language: string = DEFAULT_CONFIG.language,
+        count: number = DEFAULT_CONFIG.count,
+        difficulty: number = DEFAULT_CONFIG.difficulty,
+    ): string {
+        const examConfig: ExamTypeConfig = getExamConfig(examType);
+        const languageConfig: LanguageConfig = getLanguageConfig(language);
+
+        return `You are a curriculum expert. Generate ${count} high-quality MCQs.
+Ensure difficulty is around ${difficulty} (scale 1-3).
+
+${examConfig.promptInstructions}
+
+Focus Areas: ${examConfig.focusAreas.join(', ')}
+Question Style: ${examConfig.questionStyle}
+
+${languageConfig.instruction}
+
+For each question:
+- Rephrase the question style so every question sounds slightly different.
+  (e.g., "Which of the following…", "Identify…", "Find the correct statement…",
+  "Below is a question about…", "Choose the right option…", etc.)
+- Ensure **exactly 4 options**.
+- Only **one correct option**.
+- Options should be meaningful, diverse, and not repetitive.
+- The correct option must be clearly accurate according to Indian competitive exam standards.
+- Provide a short, clear explanation for the answer.
+- Return the output strictly in JSON array format.`;
+    }
+
+    /**
+     * Log request metrics for monitoring and debugging
+     * Requirements: 3.7
+     *
+     * @param metrics - The request metrics to log
+     */
+    private logRequestMetrics(metrics: RequestMetrics): void {
+        const logData = {
+            timestamp: new Date().toISOString(),
+            service: 'GeminiIntegration',
+            method: 'generateQuestions',
+            ...metrics,
+        };
+
+        if (metrics.success) {
+            console.log('[Gemini Metrics]', JSON.stringify(logData));
+        } else {
+            console.error('[Gemini Metrics - Failed]', JSON.stringify(logData));
+        }
+    }
+
+    /**
      * Generate questions with strict JSON schema alignment for Drizzle tables
+     * Includes retry logic with exponential backoff and request metrics logging
+     * Requirements: 3.1, 3.2, 3.3, 3.6, 3.7
      */
     async generateQuestions(input: {
         prompt: string;
         model?: string;
         difficulty?: number;
         count?: number;
+        language?: string;
+        examType?: string;
     }): Promise<GeneratedQuestionData[]> {
         if (!this._connected) throw new Error('Gemini integration not connected');
 
         const modelName = input.model || this._config.model || 'gemini-2.0-flash';
+        const count = input.count || DEFAULT_CONFIG.count;
+        const difficulty = input.difficulty || DEFAULT_CONFIG.difficulty;
+        const language = input.language || DEFAULT_CONFIG.language;
+        const examType = input.examType || DEFAULT_CONFIG.examType;
+
+        const startTime = Date.now();
+        const maxRetries = 3;
+        let attemptCount = 0;
+        let lastError: Error | null = null;
 
         // DEFINITION FIX: Use string literals instead of SchemaType
         const questionSchema = {
@@ -110,60 +211,70 @@ export class GeminiIntegration implements BaseIntegration<GeminiIntegrationConfi
             },
         };
 
-        const systemInstruction = `You are a curriculum expert. Generate ${input.count || 5} questions. 
-        Ensure difficulty is around ${input.difficulty || 1} (scale 1-3).
-        You are a curriculum expert. Generate ${input.count || 5} high-quality MCQs.
+        // Build dynamic system prompt from configuration (Requirements: 3.1, 3.2, 3.3)
+        const systemInstruction = this.buildSystemPrompt(examType, language, count, difficulty);
 
-        Generate questions for the topic that genuinely help a Kerala PSC aspirant crack the exam.
-        Focus on the most important, most repeatedly-tested, and most confusing areas of that topic.
-        Make the questions feel practical, exam-smart, and close to what PSC setters ask — not theoretical or academic.
-        Include tricky wording, common traps, and subtle distinctions PSC loves testing.
-        Keep explanations short, friendly, and confidence-building, helping the learner understand the logic quickly.
-        Overall vibe should make the learner feel: ‘I really needed this question — this is exactly what PSC asks.
-        
-        Always give question and answer in Malayalam
-        
-        For each question:
-        - Rephrase the question style so every question sounds slightly different.  
-        (e.g., “Which of the following…”, “Identify…”, “Find the correct statement…”,  
-        “Below is a question about…”, “Choose the right option…”, etc.)
-        - Ensure **exactly 4 options**.
-        - Only **one correct option**.
-        - Options should be meaningful, diverse, and not repetitive.
-        - The correct option must be clearly accurate according to Indian competitive exam standards.
-        - Provide a short, clear explanation for the answer.
-        - Return the output strictly in JSON array format.
-        `;
+        // Retry loop with exponential backoff (Requirements: 3.6)
+        while (attemptCount < maxRetries) {
+            attemptCount++;
 
-        try {
-            const response = await this._client.models.generateContent({
-                model: modelName || 'gemini-2.5-flash',
-                contents: input.prompt,
-                config: {
-                    maxOutputTokens: 100000,
-                    responseMimeType: 'application/json',
-                    responseSchema: questionSchema, // Pass the schema object directly
-                    systemInstruction: systemInstruction,
-                },
-            });
+            try {
+                const response = await this._client.models.generateContent({
+                    model: modelName,
+                    contents: input.prompt,
+                    config: {
+                        maxOutputTokens: 100000,
+                        responseMimeType: 'application/json',
+                        responseSchema: questionSchema,
+                        systemInstruction: systemInstruction,
+                    },
+                });
 
-            console.log(response);
-            // Parse response
-            const responseText = response.candidates?.[0]?.content?.parts?.[0]?.text;
-            console.log(responseText);
-            const parsedData = JSON.parse(responseText!);
-            return parsedData as GeneratedQuestionData[];
-        } catch (error) {
-            // Enhanced error logging for the new SDK
-            const msg = error instanceof Error ? error.message : String(error);
-            throw new Error(`Failed to generate questions: ${msg}`);
+                // Parse response
+                const responseText = response.candidates?.[0]?.content?.parts?.[0]?.text;
+                const parsedData = JSON.parse(responseText!);
+                const questions = parsedData as GeneratedQuestionData[];
+
+                // Log success metrics (Requirements: 3.7)
+                this.logRequestMetrics({
+                    duration: Date.now() - startTime,
+                    model: modelName,
+                    questionsRequested: count,
+                    questionsGenerated: questions.length,
+                    attemptCount,
+                    success: true,
+                });
+
+                return questions;
+            } catch (error) {
+                lastError = error instanceof Error ? error : new Error(String(error));
+
+                // Log retry attempt
+                console.warn(`[Gemini] Attempt ${attemptCount}/${maxRetries} failed: ${lastError.message}`);
+
+                // If not the last attempt, apply exponential backoff (2s, 4s delays)
+                if (attemptCount < maxRetries) {
+                    const delayMs = Math.pow(2, attemptCount) * 1000;
+                    console.log(`[Gemini] Retrying in ${delayMs}ms...`);
+                    await sleep(delayMs);
+                }
+            }
         }
+
+        // All retries exhausted - log failure metrics (Requirements: 3.7)
+        this.logRequestMetrics({
+            duration: Date.now() - startTime,
+            model: modelName,
+            questionsRequested: count,
+            questionsGenerated: 0,
+            attemptCount,
+            success: false,
+            error: lastError?.message,
+        });
+
+        throw new Error(`Failed to generate questions after ${maxRetries} attempts: ${lastError?.message}`);
     }
 
-    /**
-     * Generate Text-to-Speech
-     */
-    // ... (class definition and other methods)
 
     /**
      * Generate Text-to-Speech
@@ -216,8 +327,6 @@ export class GeminiIntegration implements BaseIntegration<GeminiIntegrationConfi
         }
     }
 
-    // ... (rest of the class)
-
     /**
      * Generate embedding
      */
@@ -225,14 +334,14 @@ export class GeminiIntegration implements BaseIntegration<GeminiIntegrationConfi
         text: string;
         model?: string;
         taskType?:
-            | 'SEMANTIC_SIMILARITY'
-            | 'CLASSIFICATION'
-            | 'CLUSTERING'
-            | 'RETRIEVAL_DOCUMENT'
-            | 'RETRIEVAL_QUERY'
-            | 'CODE_RETRIEVAL_QUERY'
-            | 'QUESTION_ANSWERING'
-            | 'FACT_VERIFICATION';
+        | 'SEMANTIC_SIMILARITY'
+        | 'CLASSIFICATION'
+        | 'CLUSTERING'
+        | 'RETRIEVAL_DOCUMENT'
+        | 'RETRIEVAL_QUERY'
+        | 'CODE_RETRIEVAL_QUERY'
+        | 'QUESTION_ANSWERING'
+        | 'FACT_VERIFICATION';
         outputDimensionality?: number;
     }): Promise<number[]> {
         if (!this._connected) throw new Error('Gemini integration not connected');

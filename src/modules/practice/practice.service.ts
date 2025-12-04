@@ -41,7 +41,7 @@ export class QuizSessionService {
         private readonly db: Database.DrizzleDB,
         private readonly questionGen: QuestionService,
         private readonly gamificationService: GamificationService,
-    ) {}
+    ) { }
 
     async getPracticeSession(sessionId: string): Promise<PracticeSession> {
         const [sessionResult] = await this.db.select().from(practiceSessions).where(eq(practiceSessions.id, sessionId)).limit(1);
@@ -169,9 +169,10 @@ export class QuizSessionService {
         const answers = await this.db.select().from(sessionAnswers).where(eq(sessionAnswers.sessionId, sessionId));
 
         const correctCount = answers.filter((a) => a.isCorrect).length;
+        const actualAnsweredCount = answers.length;
         const timeSpentSeconds = session.timeSpentSeconds ?? 0;
         const xpEarned = correctCount * 10 + Math.floor(timeSpentSeconds / 60) * 2;
-        const accuracy = session.totalQuestions > 0 ? ((correctCount / session.totalQuestions) * 100).toFixed(2) : '0.00';
+        const accuracy = actualAnsweredCount > 0 ? ((correctCount / actualAnsweredCount) * 100).toFixed(2) : '0.00';
         const today = new Date();
 
         // Prepare session object for gamification service
@@ -181,7 +182,7 @@ export class QuizSessionService {
             completedAt: today,
             xpEarned,
             accuracy,
-            questionsAttempted: session.totalQuestions,
+            questionsAttempted: actualAnsweredCount,
             correctAnswers: correctCount,
             timeSpentSeconds,
         };

@@ -124,14 +124,22 @@ export class UserController {
     @HttpCode(HttpStatus.OK)
     async getMyStreak(@Session() session: UserSession): Promise<StreakCalendarResponseDto[]> {
         const streaks = await this.userService.getStreakCalendar(session.user.id);
-        return streaks.map((streak) => ({
-            id: streak.id,
-            userId: streak.userId,
-            date: streak.activityDate,
-            quizzesCompleted: streak.quizzesCompleted,
-            questionsAnswered: streak.questionsAnswered,
-            xpEarned: streak.xpEarned,
-            streakDay: 0, // This field doesn't exist in schema, so we set to 0 or calculate it
-        }));
+        return streaks.map((streak) => {
+            // Format date as YYYY-MM-DD to avoid timezone issues
+            const date = streak.activityDate instanceof Date
+                ? streak.activityDate
+                : new Date(streak.activityDate);
+            const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+            return {
+                id: streak.id,
+                userId: streak.userId,
+                date: formattedDate,
+                quizzesCompleted: streak.quizzesCompleted,
+                questionsAnswered: streak.questionsAnswered,
+                xpEarned: streak.xpEarned,
+                streakDay: 0, // This field doesn't exist in schema, so we set to 0 or calculate it
+            };
+        });
     }
 }

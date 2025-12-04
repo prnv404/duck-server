@@ -18,7 +18,7 @@ export class QuestionGenerationProcessor {
     constructor(
         private registry: IntegrationRegistry,
         @Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB,
-    ) {}
+    ) { }
 
     @Process({
         concurrency: 1,
@@ -26,7 +26,7 @@ export class QuestionGenerationProcessor {
     async handleQuestionGeneration(job: Job<GenerateQuestionsJob>) {
         this.logger.log(`Processing question generation job ${job.id}`);
 
-        const { prompt, topicId, model, difficulty, count } = job.data;
+        const { prompt, topicId, model, difficulty, count, language, examType } = job.data;
 
         try {
             // Get Gemini integration
@@ -35,12 +35,14 @@ export class QuestionGenerationProcessor {
                 throw new Error('Gemini integration not available');
             }
 
-            // Generate questions
+            // Generate questions with language and examType (Requirements: 3.1, 3.2, 3.3)
             const generatedQuestions = await gemini.generateQuestions({
                 prompt,
                 model,
                 difficulty,
                 count,
+                language,
+                examType,
             });
 
             this.logger.log(`Generated ${generatedQuestions.length} questions`);

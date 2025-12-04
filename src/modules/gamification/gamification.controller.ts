@@ -79,15 +79,23 @@ export class GamificationController {
         return {
             currentStreak: streakData.currentStreak,
             longestStreak: streakData.longestStreak,
-            calendar: streakData.calendar.map((entry) => ({
-                id: entry.id,
-                userId: entry.userId,
-                activityDate: entry.activityDate,
-                quizzesCompleted: entry.quizzesCompleted,
-                questionsAnswered: entry.questionsAnswered,
-                xpEarned: entry.xpEarned,
-                createdAt: entry.createdAt,
-            })),
+            calendar: streakData.calendar.map((entry) => {
+                // Format date as YYYY-MM-DD to avoid timezone issues
+                const date = entry.activityDate instanceof Date
+                    ? entry.activityDate
+                    : new Date(entry.activityDate);
+                const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+                return {
+                    id: entry.id,
+                    userId: entry.userId,
+                    activityDate: formattedDate as any,
+                    quizzesCompleted: entry.quizzesCompleted,
+                    questionsAnswered: entry.questionsAnswered,
+                    xpEarned: entry.xpEarned,
+                    createdAt: entry.createdAt,
+                };
+            }),
         };
     }
 
