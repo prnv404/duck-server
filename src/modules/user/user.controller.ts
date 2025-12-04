@@ -124,13 +124,13 @@ export class UserController {
         const streaks = await this.userService.getStreakCalendar(session.user.id);
         return streaks.map((streak) => {
             // Format date as YYYY-MM-DD to avoid timezone issues
-            const date = streak.activityDate instanceof Date ? streak.activityDate : new Date(streak.activityDate);
-            const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+            const date = streak.activityDate instanceof Date ? streak.activityDate : new Date(streak.activityDate) 
+            const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` as unknown as any;
 
             return {
                 id: streak.id,
                 userId: streak.userId,
-                date: formattedDate,
+                date: formattedDate  ,
                 quizzesCompleted: streak.quizzesCompleted,
                 questionsAnswered: streak.questionsAnswered,
                 xpEarned: streak.xpEarned,
