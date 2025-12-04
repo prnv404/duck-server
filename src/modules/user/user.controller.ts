@@ -12,9 +12,7 @@ import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
 @Controller('users')
 export class UserController {
-    constructor(private readonly userService: UserService) { }
-
-
+    constructor(private readonly userService: UserService) {}
 
     @Get('me')
     @HttpCode(HttpStatus.OK)
@@ -126,9 +124,7 @@ export class UserController {
         const streaks = await this.userService.getStreakCalendar(session.user.id);
         return streaks.map((streak) => {
             // Format date as YYYY-MM-DD to avoid timezone issues
-            const date = streak.activityDate instanceof Date
-                ? streak.activityDate
-                : new Date(streak.activityDate);
+            const date = streak.activityDate instanceof Date ? streak.activityDate : new Date(streak.activityDate);
             const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
             return {

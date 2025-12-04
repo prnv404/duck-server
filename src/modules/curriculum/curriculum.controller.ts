@@ -5,7 +5,7 @@ import { Session, type UserSession, AllowAnonymous } from '@thallesp/nestjs-bett
 
 @Controller('curriculum')
 export class CurriculumController {
-    constructor(private readonly curriculumService: CurriculumService) { }
+    constructor(private readonly curriculumService: CurriculumService) {}
 
     /**
      * Get all subjects

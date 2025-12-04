@@ -13,7 +13,7 @@ import * as fc from 'fast-check';
 const emailArbitrary = fc.emailAddress();
 
 // Arbitrary for valid names (non-empty strings with reasonable length)
-const nameArbitrary = fc.string({ minLength: 1, maxLength: 100 }).filter(s => s.trim().length > 0);
+const nameArbitrary = fc.string({ minLength: 1, maxLength: 100 }).filter((s) => s.trim().length > 0);
 
 // Arbitrary for valid avatar URLs
 const avatarUrlArbitrary = fc.webUrl();
@@ -58,17 +58,21 @@ const invalidSessionTokenArbitrary = fc.oneof(
 
 // Arbitrary for expired session timestamps (in the past)
 // Using integer timestamps to avoid Date(NaN) issues
-const expiredTimestampArbitrary = fc.integer({
-    min: new Date('2020-01-01').getTime(),
-    max: Date.now() - 1000, // At least 1 second in the past
-}).map(ts => new Date(ts));
+const expiredTimestampArbitrary = fc
+    .integer({
+        min: new Date('2020-01-01').getTime(),
+        max: Date.now() - 1000, // At least 1 second in the past
+    })
+    .map((ts) => new Date(ts));
 
 // Arbitrary for valid session timestamps (in the future)
 // Using integer timestamps to avoid Date(NaN) issues
-const validTimestampArbitrary = fc.integer({
-    min: Date.now() + 1000, // At least 1 second in the future
-    max: Date.now() + 7 * 24 * 60 * 60 * 1000, // Up to 7 days in the future
-}).map(ts => new Date(ts));
+const validTimestampArbitrary = fc
+    .integer({
+        min: Date.now() + 1000, // At least 1 second in the future
+        max: Date.now() + 7 * 24 * 60 * 60 * 1000, // Up to 7 days in the future
+    })
+    .map((ts) => new Date(ts));
 
 // Arbitrary for user IDs (UUIDs)
 const userIdArbitrary = fc.uuid();
@@ -131,7 +135,7 @@ describe('Better Auth Google OAuth Configuration', () => {
                     // Property: The stored email SHALL match the Google profile email
                     expect(userRecord.email).toBe(profile.email);
                 }),
-                { numRuns: 100 }
+                { numRuns: 100 },
             );
         });
 
@@ -143,7 +147,7 @@ describe('Better Auth Google OAuth Configuration', () => {
                     // Property: The stored name SHALL match the Google profile name
                     expect(userRecord.fullName).toBe(profile.name);
                 }),
-                { numRuns: 100 }
+                { numRuns: 100 },
             );
         });
 
@@ -155,7 +159,7 @@ describe('Better Auth Google OAuth Configuration', () => {
                     // Property: The stored avatar URL SHALL match the Google profile avatar
                     expect(userRecord.avatarUrl).toBe(profile.avatarUrl);
                 }),
-                { numRuns: 100 }
+                { numRuns: 100 },
             );
         });
 
@@ -167,7 +171,7 @@ describe('Better Auth Google OAuth Configuration', () => {
                     // Property: Google OAuth users should have verified emails
                     expect(userRecord.emailVerified).toBe(true);
                 }),
-                { numRuns: 100 }
+                { numRuns: 100 },
             );
         });
 
@@ -188,7 +192,7 @@ describe('Better Auth Google OAuth Configuration', () => {
                     expect(userRecord.avatarUrl).toBeDefined();
                     expect(userRecord.emailVerified).toBeDefined();
                 }),
-                { numRuns: 100 }
+                { numRuns: 100 },
             );
         });
     });
@@ -214,7 +218,7 @@ describe('Better Auth Google OAuth Configuration', () => {
                     expect(result.statusCode).toBe(401);
                     expect(result.user).toBeUndefined();
                 }),
-                { numRuns: 100 }
+                { numRuns: 100 },
             );
         });
 
@@ -232,7 +236,7 @@ describe('Better Auth Google OAuth Configuration', () => {
                     expect(result.statusCode).toBe(401);
                     expect(result.user).toBeUndefined();
                 }),
-                { numRuns: 100 }
+                { numRuns: 100 },
             );
         });
 
@@ -268,9 +272,9 @@ describe('Better Auth Google OAuth Configuration', () => {
                         expect(result.valid).toBe(false);
                         expect(result.statusCode).toBe(401);
                         expect(result.user).toBeUndefined();
-                    }
+                    },
                 ),
-                { numRuns: 100 }
+                { numRuns: 100 },
             );
         });
 
@@ -310,9 +314,9 @@ describe('Better Auth Google OAuth Configuration', () => {
                         expect(result.user?.id).toBe(userId);
                         expect(result.user?.email).toBe(email);
                         expect(result.user?.fullName).toBe(name);
-                    }
+                    },
                 ),
-                { numRuns: 100 }
+                { numRuns: 100 },
             );
         });
 
@@ -348,9 +352,9 @@ describe('Better Auth Google OAuth Configuration', () => {
                         expect(result.user?.id).toBe(userId);
                         expect(result.user?.email).toBe(email);
                         expect(result.user?.fullName).toBe(name);
-                    }
+                    },
                 ),
-                { numRuns: 100 }
+                { numRuns: 100 },
             );
         });
     });

@@ -11,7 +11,7 @@ export class GamificationController {
     constructor(
         private readonly gamificationService: GamificationService,
         @Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB,
-    ) { }
+    ) {}
 
     /**
      * Get user's badges
@@ -81,9 +81,7 @@ export class GamificationController {
             longestStreak: streakData.longestStreak,
             calendar: streakData.calendar.map((entry) => {
                 // Format date as YYYY-MM-DD to avoid timezone issues
-                const date = entry.activityDate instanceof Date
-                    ? entry.activityDate
-                    : new Date(entry.activityDate);
+                const date = entry.activityDate instanceof Date ? entry.activityDate : new Date(entry.activityDate);
                 const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
                 return {

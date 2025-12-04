@@ -48,10 +48,10 @@ export const auth = betterAuth({
         },
     },
     trustedOrigins: [
-        'exp://',      // Expo development base
-        'exp://*',     // Expo development with paths
-        'duck://',     // Production app scheme base
-        'duck://*',    // Production app scheme with paths
+        'exp://', // Expo development base
+        'exp://*', // Expo development with paths
+        'duck://', // Production app scheme base
+        'duck://*', // Production app scheme with paths
         'https://delia-unsigneted-marcela.ngrok-free.dev',
         'https://delia-unsigneted-marcela.ngrok-free.dev/*',
     ],

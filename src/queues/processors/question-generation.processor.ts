@@ -18,7 +18,7 @@ export class QuestionGenerationProcessor {
     constructor(
         private registry: IntegrationRegistry,
         @Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB,
-    ) { }
+    ) {}
 
     @Process({
         concurrency: 1,

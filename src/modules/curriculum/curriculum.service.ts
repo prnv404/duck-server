@@ -39,7 +39,7 @@ export interface SyllabusEntry {
 
 @Injectable()
 export class CurriculumService {
-    constructor(@Inject(DatabaseModule.DRIZZLE) private readonly db: DatabaseModule.DrizzleDB) { }
+    constructor(@Inject(DatabaseModule.DRIZZLE) private readonly db: DatabaseModule.DrizzleDB) {}
 
     async getSubjects() {
         const results = await this.db.select().from(subjects);
@@ -63,8 +63,6 @@ export class CurriculumService {
     }
 
     async getSubjectWiseAccuracy(userId: string): Promise<SubjectAccuracy[]> {
-        
-
         // Build base WHERE conditions
         const baseWhere = and(eq(userTopicProgress.userId, userId), sql`${userTopicProgress.questionsAttempted} > 0`);
 

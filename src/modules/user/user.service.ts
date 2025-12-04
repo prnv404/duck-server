@@ -19,7 +19,7 @@ type DrizzleDB = DatabaseModule.DrizzleDB;
 
 @Injectable()
 export class UserService {
-    constructor(@Inject(DatabaseModule.DRIZZLE) private readonly db: DrizzleDB) { }
+    constructor(@Inject(DatabaseModule.DRIZZLE) private readonly db: DrizzleDB) {}
 
     // ──────────────────────────────────────────────────────────────────────
     // NEW: One-stop method for AuthService — creates user + all defaults
@@ -41,7 +41,7 @@ export class UserService {
     //         const [_user] = await tx
     //             .insert(user)
     //             .values({
-    //                 id: '',    
+    //                 id: '',
     //                 name:"",
     //                 email: data.email
 
@@ -108,8 +108,6 @@ export class UserService {
 
         return ServiceHelper.ensureExists(_user, id, 'User');
     }
-
-
 
     async findAll(limit = 20, offset = 0): Promise<User[]> {
         return this.db.select().from(user).limit(limit).offset(offset);

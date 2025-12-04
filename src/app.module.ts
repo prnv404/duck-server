@@ -56,4 +56,4 @@ import { auth } from './config/auth/auth';
         },
     ],
 })
-export class AppModule { }
+export class AppModule {}

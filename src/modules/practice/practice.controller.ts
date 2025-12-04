@@ -13,7 +13,7 @@ import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
 
 @Controller('practice')
 export class PracticeController {
-    constructor(private readonly practiceService: QuizSessionService) { }
+    constructor(private readonly practiceService: QuizSessionService) {}
 
     /**
      * Create a new practice session

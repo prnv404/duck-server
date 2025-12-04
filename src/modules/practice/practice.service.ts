@@ -41,7 +41,7 @@ export class QuizSessionService {
         private readonly db: Database.DrizzleDB,
         private readonly questionGen: QuestionService,
         private readonly gamificationService: GamificationService,
-    ) { }
+    ) {}
 
     async getPracticeSession(sessionId: string): Promise<PracticeSession> {
         const [sessionResult] = await this.db.select().from(practiceSessions).where(eq(practiceSessions.id, sessionId)).limit(1);

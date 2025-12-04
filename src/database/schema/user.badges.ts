@@ -1,4 +1,4 @@
-import { pgTable, uuid, timestamp, text,decimal, index, unique } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, timestamp, text, decimal, index, unique } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 // Assuming you have imported your users and badges schemas correctly

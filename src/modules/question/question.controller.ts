@@ -16,7 +16,7 @@ export class QuestionController {
         private readonly questionGenService: QuestionGenerationService,
         @InjectQueue(QUESTION_GENERATION_QUEUE) private questionQueue: Queue,
         @Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB,
-    ) { }
+    ) {}
 
     @Post('generate')
     async generateQuestions(@Body() dto: GenerateQuestionDto) {

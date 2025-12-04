@@ -1,9 +1,9 @@
 /**
  * Prompt Configuration for AI Question Generation
- * 
+ *
  * This file contains configurable prompt templates for different exam types
  * and languages, replacing hardcoded strings in the Gemini integration.
- * 
+ *
  * Requirements: 3.1, 3.2, 3.3
  */
 
@@ -91,12 +91,7 @@ Focus on quick-solving techniques and commonly tested patterns.
 Include questions that test speed and accuracy in problem-solving.
 Questions should be direct and fact-based, matching SSC's typical difficulty level.
 Explanations should include shortcuts and tricks where applicable.`,
-        focusAreas: [
-            'Quantitative Aptitude',
-            'General Intelligence and Reasoning',
-            'English Language',
-            'General Awareness',
-        ],
+        focusAreas: ['Quantitative Aptitude', 'General Intelligence and Reasoning', 'English Language', 'General Awareness'],
         questionStyle: 'Direct, fact-based questions with focus on speed and accuracy',
     },
 
@@ -128,14 +123,7 @@ Focus on commonly tested topics across different examination boards.
 Include a mix of factual, conceptual, and application-based questions.
 Questions should be clear, unambiguous, and educationally valuable.
 Explanations should be informative and help build broader understanding.`,
-        focusAreas: [
-            'General Science',
-            'History',
-            'Geography',
-            'Polity',
-            'Economics',
-            'Current Affairs',
-        ],
+        focusAreas: ['General Science', 'History', 'Geography', 'Polity', 'Economics', 'Current Affairs'],
         questionStyle: 'Balanced mix of factual and conceptual questions',
     },
 };

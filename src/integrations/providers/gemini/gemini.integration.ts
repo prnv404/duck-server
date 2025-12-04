@@ -275,7 +275,6 @@ For each question:
         throw new Error(`Failed to generate questions after ${maxRetries} attempts: ${lastError?.message}`);
     }
 
-
     /**
      * Generate Text-to-Speech
      */
@@ -334,14 +333,14 @@ For each question:
         text: string;
         model?: string;
         taskType?:
-        | 'SEMANTIC_SIMILARITY'
-        | 'CLASSIFICATION'
-        | 'CLUSTERING'
-        | 'RETRIEVAL_DOCUMENT'
-        | 'RETRIEVAL_QUERY'
-        | 'CODE_RETRIEVAL_QUERY'
-        | 'QUESTION_ANSWERING'
-        | 'FACT_VERIFICATION';
+            | 'SEMANTIC_SIMILARITY'
+            | 'CLASSIFICATION'
+            | 'CLUSTERING'
+            | 'RETRIEVAL_DOCUMENT'
+            | 'RETRIEVAL_QUERY'
+            | 'CODE_RETRIEVAL_QUERY'
+            | 'QUESTION_ANSWERING'
+            | 'FACT_VERIFICATION';
         outputDimensionality?: number;
     }): Promise<number[]> {
         if (!this._connected) throw new Error('Gemini integration not connected');
