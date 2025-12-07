@@ -5,8 +5,9 @@ export function createIORedisFromUpstash(input: { host: string; port: number; pa
         host: input.host,
         port: input.port,
         password: input.password,
+        // Remove TLS - Redis Labs doesn't require it for this connection
         tls: {
-            rejectUnauthorized: false,
+            rejectUnauthorized:true
         },
         enableReadyCheck: false,
         maxRetriesPerRequest: null,

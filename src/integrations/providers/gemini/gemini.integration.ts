@@ -95,7 +95,6 @@ export class GeminiIntegration implements BaseIntegration<GeminiIntegrationConfi
         count: number = DEFAULT_CONFIG.count,
         difficulty: number = DEFAULT_CONFIG.difficulty,
     ): string {
-        const languageConfig: LanguageConfig = getLanguageConfig(language);
 
         return `You are a curriculum expert. Generate ${count} high-quality MCQs.
 Ensure difficulty is around ${difficulty} (scale 1-3).
@@ -106,7 +105,7 @@ Make the questions feel practical, exam-smart, and close to what exam setters as
 Include tricky wording, common traps, and subtle distinctions exams love testing.
 Keep explanations short, friendly, and confidence-building, helping the learner understand the logic quickly.
 
-${languageConfig.instruction}
+  give me question and answers in ${language}
 
 For each question:
 - Rephrase the question style so every question sounds slightly different.

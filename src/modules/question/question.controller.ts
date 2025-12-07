@@ -24,6 +24,7 @@ export class QuestionController {
     @AllowAnonymous()
     @UseGuards(ApiKeyGuard)
     async generateQuestions(@Body() dto: GenerateQuestionDto) {
+
         const [topic] = await this.db.select().from(topics).where(eq(topics.id, dto.topicId));
 
         if (!topic) {
@@ -41,7 +42,7 @@ export class QuestionController {
         const estimatedProcessingTime = count * 3 + 2;
 
         // Add job to queue instead of processing synchronously
-        const job = await this.questionQueue.add(
+        const job =  await this.questionQueue.add(
             {
                 prompt: dto.prompt + ' ' + topic.name,
                 topicId: dto.topicId,
@@ -61,10 +62,6 @@ export class QuestionController {
             message: 'Question generation started. Use /questions/jobs/:jobId to check status',
             estimatedProcessingTime: `${estimatedProcessingTime} seconds`,
             config: {
-                language: {
-                    code: languageConfig.code,
-                    name: languageConfig.name,
-                },
                 questionCount: count,
                 difficulty: dto.difficulty || DEFAULT_CONFIG.difficulty,
             },

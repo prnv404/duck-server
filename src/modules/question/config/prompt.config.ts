@@ -55,14 +55,14 @@ export const DEFAULT_CONFIG = {
  * @returns LanguageConfig or default English config
  */
 export function getLanguageConfig(languageCode: string): LanguageConfig {
-    return LANGUAGE_CONFIGS[languageCode] || LANGUAGE_CONFIGS.en;
+    return LANGUAGE_CONFIGS[languageCode]
 }
 
 /**
  * Supported languages enum for validation
  */
 export enum Language {
-    MALAYALAM = 'ml',
+    MALAYALAM = 'malayalam',
     ENGLISH = 'en',
     HINDI = 'hi',
 }
