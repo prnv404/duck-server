@@ -100,12 +100,12 @@ export class GeminiIntegration implements BaseIntegration<GeminiIntegrationConfi
 Ensure difficulty is around ${difficulty} (scale 1-3).
 
 Generate questions that genuinely help aspirants crack competitive exams.
-Focus on the most important, most repeatedly-tested, and most confusing areas of the topic.
+Focus on the most important, and mostt confusing areas of the topic.
 Make the questions feel practical, exam-smart, and close to what exam setters ask — not theoretical or academic.
 Include tricky wording, common traps, and subtle distinctions exams love testing.
 Keep explanations short, friendly, and confidence-building, helping the learner understand the logic quickly.
 
-  give me question and answers in ${language}
+give the question and answers in ${language}
 
 For each question:
 - Rephrase the question style so every question sounds slightly different.
@@ -194,7 +194,7 @@ For each question:
                 model: modelName,
                 contents: input.prompt,
                 config: {
-                    maxOutputTokens: 100000,
+                    maxOutputTokens: 500000,
                     responseMimeType: 'application/json',
                     responseSchema: questionSchema,
                     systemInstruction: systemInstruction,
@@ -249,8 +249,7 @@ For each question:
                             {
                                 text:
                                     `
-                            Use a calm, friendly, and clear teaching tone.
-                            Speak at a medium pace, with smooth transitions.
+                            Use a friendly, and clear teaching tone.
                             Explain clearly, without sounding robotic.
                             Your goal is to help the learner understand.
                             Keep the voice warm, approachable
