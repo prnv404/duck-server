@@ -15,3 +15,4 @@ export * from './notification';
 export * from './question.history';
 export * from './question.preference';
 export * from './question.queue';
+export * from './prompts';

@@ -3,7 +3,7 @@ import { Injectable, InternalServerErrorException, Inject, BadRequestException }
 import { InjectQueue } from '@nestjs/bull';
 import type { Queue } from 'bull';
 import * as Database from '@/database';
-import { questionQueue, questions, answerOptions, Question, AnswerOption } from '@/database/schema';
+import { questionQueue, questions, answerOptions, Question, AnswerOption, topics } from '@/database/schema';
 import { eq, sql, gt } from 'drizzle-orm';
 
 interface ApprovalResult {
@@ -31,7 +31,7 @@ export class QuestionGenerationService {
         private registry: IntegrationRegistry,
         @Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB,
         @InjectQueue('audio-processing') private audioQueue: Queue,
-    ) {}
+    ) { }
 
     /**
      * Validates question structure before approval.
@@ -174,7 +174,7 @@ export class QuestionGenerationService {
                 });
 
                 // 3. Queue Audio Job: implement later
-                if (false) {
+                if (newQuestion) {
                     const job = await this.audioQueue.add(
                         {
                             queueId,
@@ -228,17 +228,29 @@ export class QuestionGenerationService {
     async getPendingQuestions() {
         // Fetch questions that are neither approved nor rejected
         const pendingQuestions = await this.db
-            .select()
+            .select({
+                id: questionQueue.id,
+                question: questionQueue.question,
+                is_approved: questionQueue.is_approved,
+                is_rejected: questionQueue.is_rejected,
+                topicId: questionQueue.topicId,
+                topicName: topics.name,
+                status: questionQueue.status,
+                jobId: questionQueue.jobId,
+            })
             .from(questionQueue)
+            .leftJoin(topics, eq(questionQueue.topicId, topics.id))
             .where(sql`${questionQueue.is_approved} = false AND ${questionQueue.is_rejected} = false`)
             .orderBy(questionQueue.createdAt);
 
         return {
             questions: pendingQuestions.map((q) => ({
                 id: q.id,
+                question: q.question,
                 is_approved: q.is_approved,
                 is_rejected: q.is_rejected,
                 topicId: q.topicId,
+                topicName: q.topicName,
                 status: q.status,
                 jobId: q.jobId,
             })),

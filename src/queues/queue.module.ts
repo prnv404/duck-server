@@ -47,4 +47,4 @@ export const AUDIO_PROCESSING_QUEUE = 'audio-processing';
     providers: [QuestionGenerationProcessor, AudioProcessingProcessor],
     exports: [BullModule],
 })
-export class QueueModule {}
+export class QueueModule { }

@@ -1,7 +1,8 @@
-import { Controller, Get, Param, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Param, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
 import { CurriculumService } from './curriculum.service';
 import { SubjectResponseDto, TopicResponseDto, SubjectAccuracyResponseDto } from './dto/curriculum.dto';
 import { Session, type UserSession, AllowAnonymous } from '@thallesp/nestjs-better-auth';
+import { ApiKeyGuard } from '@/common/guards/api-key.guard';
 
 @Controller('curriculum')
 export class CurriculumController {
@@ -13,6 +14,7 @@ export class CurriculumController {
      */
     @Get('subjects')
     @AllowAnonymous()
+    @UseGuards(ApiKeyGuard)
     @HttpCode(HttpStatus.OK)
     async getSubjects(): Promise<SubjectResponseDto[]> {
         const subjects = await this.curriculumService.getSubjects();
@@ -55,6 +57,7 @@ export class CurriculumController {
      */
     @Get('subjects/:id/topics')
     @AllowAnonymous()
+    @UseGuards(ApiKeyGuard)
     @HttpCode(HttpStatus.OK)
     async getTopicsBySubjectId(@Param('id') subjectId: string): Promise<TopicResponseDto[]> {
         const topics = await this.curriculumService.getTopicsBySubjectId(subjectId);

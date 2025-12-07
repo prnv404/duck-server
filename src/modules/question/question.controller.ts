@@ -69,6 +69,8 @@ export class QuestionController {
     }
 
     @Get('jobs/:jobId')
+    @AllowAnonymous()
+    @UseGuards(ApiKeyGuard)
     async getJobStatus(@Param('jobId') jobId: string): Promise<JobStatusResponse> {
         const job = await this.questionQueue.getJob(jobId);
 
@@ -93,21 +95,27 @@ export class QuestionController {
     }
 
     @Post('approve/batch')
+    @AllowAnonymous()
+    @UseGuards(ApiKeyGuard)
     async batchApproveQuestions(@Body() dto: BatchApproveDto) {
         return this.questionGenService.approveQuestions(dto.queueIds) as any;
     }
 
     @Post('reject/:id')
+    @AllowAnonymous()
+    @UseGuards(ApiKeyGuard)
     async rejectQuestion(@Param('id', ParseUUIDPipe) id: string) {
         return this.questionGenService.rejectQuestion(id);
     }
 
     @Get('pending')
+    @AllowAnonymous()
+    @UseGuards(ApiKeyGuard)
     async getPendingQuestions() {
         const pendings = await this.questionGenService.getPendingQuestions();
 
         // send all ids as array
-        return pendings.questions.map((question) => question.id);
+        return pendings
     }
 
     @Post(':id/vote')

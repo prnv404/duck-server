@@ -14,10 +14,10 @@ export class GenerateQuestionDto {
     model?: string;
 
     @IsOptional()
-    @IsString()
+    @IsNumber()
     @Min(1)
     @Max(3)
-    difficulty?: string;
+    difficulty?: number;
 
     @IsOptional()
     @IsNumber()

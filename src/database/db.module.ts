@@ -37,11 +37,11 @@ export type DrizzleDB = NodePgDatabase<typeof schema>;
                 });
 
                 return drizzle(pool, {
-                    schema,
-                    cache: upstashCache({
-                        url: configService.get('UPSTASH_REDIS_REST_URL')!,
-                        token: configService.get('UPSTASH_REDIS_REST_TOKEN')!,
-                    }),
+                    schema
+                    // cache: upstashCache({
+                    //     url: configService.get('UPSTASH_REDIS_REST_URL')!,
+                    //     token: configService.get('UPSTASH_REDIS_REST_TOKEN')!,
+                    // }),
                 });
             },
         },
@@ -49,10 +49,10 @@ export type DrizzleDB = NodePgDatabase<typeof schema>;
             provide: REDIS,
             inject: [EnvService],
             useFactory: (configService: EnvService) => {
-                return new Redis({
-                    url: configService.get('UPSTASH_REDIS_REST_URL'),
-                    token: configService.get('UPSTASH_REDIS_REST_TOKEN'),
-                });
+                // return new Redis({
+                //     url: configService.get('UPSTASH_REDIS_REST_URL'),
+                //     token: configService.get('UPSTASH_REDIS_REST_TOKEN'),
+                // });
             },
         },
     ],
