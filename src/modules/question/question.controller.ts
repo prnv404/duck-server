@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Param, ParseUUIDPipe, Get, Inject, NotFoundException } from '@nestjs/common';
+import { Controller, Post, Body, Param, ParseUUIDPipe, Get, Inject, NotFoundException, UseGuards } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import type { Queue } from 'bull';
 import { QuestionGenerationService } from './question.gen.service';
@@ -8,7 +8,9 @@ import { JobStatusResponse } from '@/queues/job.types';
 import { topics } from '@/database/schema';
 import { eq } from 'drizzle-orm';
 import * as Database from '@/database';
-import { getExamConfig, getLanguageConfig, DEFAULT_CONFIG } from './config/prompt.config';
+import { getLanguageConfig, DEFAULT_CONFIG } from './config/prompt.config';
+import { ApiKeyGuard } from '@/common/guards/api-key.guard';
+import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
 @Controller('questions')
 export class QuestionController {
@@ -19,6 +21,8 @@ export class QuestionController {
     ) {}
 
     @Post('generate')
+    @AllowAnonymous()
+    @UseGuards(ApiKeyGuard)
     async generateQuestions(@Body() dto: GenerateQuestionDto) {
         const [topic] = await this.db.select().from(topics).where(eq(topics.id, dto.topicId));
 
@@ -26,13 +30,11 @@ export class QuestionController {
             throw new NotFoundException('Topic not found');
         }
 
-        // Resolve language and examType with defaults
+        // Resolve language with defaults
         const language = dto.language || DEFAULT_CONFIG.language;
-        const examType = dto.examType || DEFAULT_CONFIG.examType;
         const count = dto.count || DEFAULT_CONFIG.count;
 
         // Get config summaries
-        const examConfig = getExamConfig(examType);
         const languageConfig = getLanguageConfig(language);
 
         // Calculate estimated processing time (approx 3 seconds per question + 2 seconds overhead)
@@ -47,7 +49,6 @@ export class QuestionController {
                 difficulty: dto.difficulty,
                 count: count,
                 language: language,
-                examType: examType,
             },
             {
                 priority: 2,
@@ -60,11 +61,6 @@ export class QuestionController {
             message: 'Question generation started. Use /questions/jobs/:jobId to check status',
             estimatedProcessingTime: `${estimatedProcessingTime} seconds`,
             config: {
-                examType: {
-                    id: examConfig.id,
-                    name: examConfig.name,
-                    description: examConfig.description,
-                },
                 language: {
                     code: languageConfig.code,
                     name: languageConfig.name,

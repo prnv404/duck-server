@@ -1,13 +1,7 @@
 import { BaseIntegration } from '../../core/base-integration.interface';
 import { BaseIntegrationConfig } from '../../core/integration-config.interface';
 import { GoogleGenAI } from '@google/genai';
-import {
-    getExamConfig,
-    getLanguageConfig,
-    DEFAULT_CONFIG,
-    ExamTypeConfig,
-    LanguageConfig,
-} from '../../../modules/question/config/prompt.config';
+import { getLanguageConfig, DEFAULT_CONFIG, LanguageConfig } from '../../../modules/question/config/prompt.config';
 
 export interface GeminiIntegrationConfig extends BaseIntegrationConfig {
     apiKey: string;
@@ -29,23 +23,15 @@ export interface GeneratedQuestionData {
 
 /**
  * Request metrics for logging and monitoring
- * Requirements: 3.7
  */
 export interface RequestMetrics {
     duration: number;
     model: string;
     questionsRequested: number;
     questionsGenerated: number;
-    attemptCount: number;
     success: boolean;
     error?: string;
 }
-
-/**
- * Sleep helper function for retry delays
- * @param ms - Milliseconds to sleep
- */
-const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 export class GeminiIntegration implements BaseIntegration<GeminiIntegrationConfig> {
     readonly name = 'gemini';
@@ -96,31 +82,29 @@ export class GeminiIntegration implements BaseIntegration<GeminiIntegrationConfi
     }
 
     /**
-     * Build dynamic system prompt based on exam type and language configuration
+     * Build dynamic system prompt based on language configuration
      * Requirements: 3.1, 3.2, 3.3
      *
-     * @param examType - The exam type (PSC, UPSC, SSC, BANKING, GENERAL)
      * @param language - The language code (ml, en, hi)
      * @param count - Number of questions to generate
      * @param difficulty - Difficulty level (1-3)
      * @returns Formatted system prompt string
      */
     buildSystemPrompt(
-        examType: string = DEFAULT_CONFIG.examType,
         language: string = DEFAULT_CONFIG.language,
         count: number = DEFAULT_CONFIG.count,
         difficulty: number = DEFAULT_CONFIG.difficulty,
     ): string {
-        const examConfig: ExamTypeConfig = getExamConfig(examType);
         const languageConfig: LanguageConfig = getLanguageConfig(language);
 
         return `You are a curriculum expert. Generate ${count} high-quality MCQs.
 Ensure difficulty is around ${difficulty} (scale 1-3).
 
-${examConfig.promptInstructions}
-
-Focus Areas: ${examConfig.focusAreas.join(', ')}
-Question Style: ${examConfig.questionStyle}
+Generate questions that genuinely help aspirants crack competitive exams.
+Focus on the most important, most repeatedly-tested, and most confusing areas of the topic.
+Make the questions feel practical, exam-smart, and close to what exam setters ask — not theoretical or academic.
+Include tricky wording, common traps, and subtle distinctions exams love testing.
+Keep explanations short, friendly, and confidence-building, helping the learner understand the logic quickly.
 
 ${languageConfig.instruction}
 
@@ -159,8 +143,7 @@ For each question:
 
     /**
      * Generate questions with strict JSON schema alignment for Drizzle tables
-     * Includes retry logic with exponential backoff and request metrics logging
-     * Requirements: 3.1, 3.2, 3.3, 3.6, 3.7
+     * Retry logic is handled by BullMQ at the queue level
      */
     async generateQuestions(input: {
         prompt: string;
@@ -168,7 +151,6 @@ For each question:
         difficulty?: number;
         count?: number;
         language?: string;
-        examType?: string;
     }): Promise<GeneratedQuestionData[]> {
         if (!this._connected) throw new Error('Gemini integration not connected');
 
@@ -176,14 +158,9 @@ For each question:
         const count = input.count || DEFAULT_CONFIG.count;
         const difficulty = input.difficulty || DEFAULT_CONFIG.difficulty;
         const language = input.language || DEFAULT_CONFIG.language;
-        const examType = input.examType || DEFAULT_CONFIG.examType;
 
         const startTime = Date.now();
-        const maxRetries = 3;
-        let attemptCount = 0;
-        let lastError: Error | null = null;
 
-        // DEFINITION FIX: Use string literals instead of SchemaType
         const questionSchema = {
             type: 'ARRAY',
             items: {
@@ -211,68 +188,47 @@ For each question:
             },
         };
 
-        // Build dynamic system prompt from configuration (Requirements: 3.1, 3.2, 3.3)
-        const systemInstruction = this.buildSystemPrompt(examType, language, count, difficulty);
+        const systemInstruction = this.buildSystemPrompt(language, count, difficulty);
 
-        // Retry loop with exponential backoff (Requirements: 3.6)
-        while (attemptCount < maxRetries) {
-            attemptCount++;
+        try {
+            const response = await this._client.models.generateContent({
+                model: modelName,
+                contents: input.prompt,
+                config: {
+                    maxOutputTokens: 100000,
+                    responseMimeType: 'application/json',
+                    responseSchema: questionSchema,
+                    systemInstruction: systemInstruction,
+                },
+            });
 
-            try {
-                const response = await this._client.models.generateContent({
-                    model: modelName,
-                    contents: input.prompt,
-                    config: {
-                        maxOutputTokens: 100000,
-                        responseMimeType: 'application/json',
-                        responseSchema: questionSchema,
-                        systemInstruction: systemInstruction,
-                    },
-                });
+            const responseText = response.candidates?.[0]?.content?.parts?.[0]?.text;
+            const parsedData = JSON.parse(responseText!);
+            const questions = parsedData as GeneratedQuestionData[];
 
-                // Parse response
-                const responseText = response.candidates?.[0]?.content?.parts?.[0]?.text;
-                const parsedData = JSON.parse(responseText!);
-                const questions = parsedData as GeneratedQuestionData[];
+            this.logRequestMetrics({
+                duration: Date.now() - startTime,
+                model: modelName,
+                questionsRequested: count,
+                questionsGenerated: questions.length,
+                success: true,
+            });
 
-                // Log success metrics (Requirements: 3.7)
-                this.logRequestMetrics({
-                    duration: Date.now() - startTime,
-                    model: modelName,
-                    questionsRequested: count,
-                    questionsGenerated: questions.length,
-                    attemptCount,
-                    success: true,
-                });
+            return questions;
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
 
-                return questions;
-            } catch (error) {
-                lastError = error instanceof Error ? error : new Error(String(error));
+            this.logRequestMetrics({
+                duration: Date.now() - startTime,
+                model: modelName,
+                questionsRequested: count,
+                questionsGenerated: 0,
+                success: false,
+                error: errorMessage,
+            });
 
-                // Log retry attempt
-                console.warn(`[Gemini] Attempt ${attemptCount}/${maxRetries} failed: ${lastError.message}`);
-
-                // If not the last attempt, apply exponential backoff (2s, 4s delays)
-                if (attemptCount < maxRetries) {
-                    const delayMs = Math.pow(2, attemptCount) * 1000;
-                    console.log(`[Gemini] Retrying in ${delayMs}ms...`);
-                    await sleep(delayMs);
-                }
-            }
+            throw error;
         }
-
-        // All retries exhausted - log failure metrics (Requirements: 3.7)
-        this.logRequestMetrics({
-            duration: Date.now() - startTime,
-            model: modelName,
-            questionsRequested: count,
-            questionsGenerated: 0,
-            attemptCount,
-            success: false,
-            error: lastError?.message,
-        });
-
-        throw new Error(`Failed to generate questions after ${maxRetries} attempts: ${lastError?.message}`);
     }
 
     /**

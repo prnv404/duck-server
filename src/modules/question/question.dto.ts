@@ -1,5 +1,5 @@
 import { IsString, IsOptional, IsNumber, Min, Max, IsUUID, IsArray, IsEnum, MinLength } from 'class-validator';
-import { ExamType, Language } from './config/prompt.config';
+import { Language } from './config/prompt.config';
 
 export class GenerateQuestionDto {
     @IsString()
@@ -28,10 +28,6 @@ export class GenerateQuestionDto {
     @IsOptional()
     @IsEnum(Language, { message: 'Language must be one of: ml, en, hi' })
     language?: Language;
-
-    @IsOptional()
-    @IsEnum(ExamType, { message: 'Exam type must be one of: PSC, UPSC, SSC, BANKING, GENERAL' })
-    examType?: ExamType;
 }
 
 export class BatchApproveDto {
