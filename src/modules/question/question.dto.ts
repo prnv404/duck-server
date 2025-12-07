@@ -6,7 +6,7 @@ export class GenerateQuestionDto {
     @MinLength(10, { message: 'Prompt must be at least 10 characters long' })
     prompt: string;
 
-    @IsUUID()
+    @IsString()
     topicId: string;
 
     @IsOptional()
