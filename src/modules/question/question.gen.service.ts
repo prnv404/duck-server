@@ -1,10 +1,11 @@
-import { GeminiIntegration, IntegrationRegistry, StorageIntegration } from '@/integrations';
+import { GeminiIntegration, IntegrationRegistry } from '@/integrations';
 import { Injectable, InternalServerErrorException, Inject, BadRequestException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import type { Queue } from 'bull';
 import * as Database from '@/database';
 import { questionQueue, questions, answerOptions, Question, AnswerOption, topics } from '@/database/schema';
-import { eq, sql, gt } from 'drizzle-orm';
+import { eq, sql, and, isNull } from 'drizzle-orm';
+import { QuestionStoreService } from './question-store.service';
 
 interface ApprovalResult {
     queueId: string;
@@ -12,6 +13,7 @@ interface ApprovalResult {
     message?: string;
     questionId?: string;
     jobId?: string;
+    audioQueued?: boolean;
 }
 
 interface QuestionValidationResult {
@@ -31,6 +33,7 @@ export class QuestionGenerationService {
         private registry: IntegrationRegistry,
         @Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB,
         @InjectQueue('audio-processing') private audioQueue: Queue,
+        private questionStoreService: QuestionStoreService,
     ) {}
 
     /**
@@ -65,14 +68,30 @@ export class QuestionGenerationService {
         };
     }
 
-    async generateQuestions(input: { prompt: string; topicId: string; model?: string; difficulty?: number; count?: number }) {
+    async generateQuestions(input: {
+        prompt: string;
+        topicId: string;
+        model?: string;
+        difficulty?: number;
+        count?: number;
+        language?: string;
+        useRAG?: boolean; // Enable RAG for deduplication
+    }) {
         const gemini = this.registry.get<GeminiIntegration>('gemini');
 
         if (!gemini) {
             throw new InternalServerErrorException('Gemini integration not found');
         }
 
-        const result = await gemini.generateQuestions(input);
+
+        // Use RAG if enabled and store is ready
+        const storeName = this.questionStoreService.getStoreName();
+
+        let result = await gemini.generateQuestions({
+            ...input,
+            fileSearchStoreName: storeName!,
+        });
+
         const queueIds: string[] = [];
         for (const res of result) {
             const [queue] = await this.db
@@ -94,10 +113,11 @@ export class QuestionGenerationService {
             count: result.length,
             queueId: queueIds,
             questions: result,
+            usedRAG: !!storeName && input.useRAG !== false,
         };
     }
 
-    async approveQuestions(queueIds: string[]) {
+    async approveQuestions(queueIds: string[], generateAudio: boolean = false) {
         const results: ApprovalResult[] = [];
 
         for (const queueId of queueIds) {
@@ -162,22 +182,28 @@ export class QuestionGenerationService {
                         }
                     }
 
-                    // Update queue row
+                    // Update queue row with appropriate status
                     await tx
                         .update(questionQueue)
                         .set({
                             is_approved: true,
-                            status: 'pending_audio',
+                            status: generateAudio ? 'pending_audio' : 'completed',
                             questionId: newQuestion.id,
                         })
                         .where(eq(questionQueue.id, queueId));
                 });
 
-                // 3. Queue Audio Job: implement later
-                if (newQuestion) {
-                    const job = await this.audioQueue.add(
+                // Queue Audio Job only if generateAudio is true
+                if (generateAudio !== false && newQuestion) {
+
+                    console.log(
+                        'landflaslfas;fja;sdfasf;asf;ashf;asdhf'
+                    )
+
+                    await this.audioQueue.add(
                         {
                             queueId,
+                            questionId: newQuestion.id,
                             questionText: questionData.questionText,
                         },
                         {
@@ -191,7 +217,7 @@ export class QuestionGenerationService {
                     queueId,
                     success: true,
                     questionId: newQuestion.id,
-                    // jobId: job.id.toString(),
+                    audioQueued: generateAudio,
                 });
             } catch (err) {
                 results.push({
@@ -202,10 +228,19 @@ export class QuestionGenerationService {
             }
         }
 
+        // Sync approved questions to RAG store (fire and forget)
+        const approvedCount = results.filter((r) => r.success).length;
+        if (approvedCount > 0) {
+            this.questionStoreService.syncQuestionsToStore().catch((err) => {
+                console.error('[QuestionGen] Failed to sync to RAG store:', err.message);
+            });
+        }
+
         return {
             success: true,
             results,
             message: 'Batch approval complete',
+            audioGeneration: generateAudio ? 'queued' : 'skipped',
         };
     }
 
@@ -296,5 +331,89 @@ export class QuestionGenerationService {
         }
 
         return { success: true };
+    }
+
+    /**
+     * Sync audio for questions - picks questions with null audioUrl and queues them
+     * Similar to RAG store sync but for audio generation
+     */
+    async syncAudioForQuestions(
+        options: {
+            topicId?: string;
+            limit?: number;
+        } = {},
+    ) {
+        const { topicId, limit = 50 } = options;
+
+        // Build where conditions using proper Drizzle syntax
+        const conditions = [isNull(questions.audioUrl), eq(questions.isActive, true)];
+
+        if (topicId) {
+            conditions.push(eq(questions.topicId, topicId));
+        }
+
+        const questionsToProcess = await this.db
+            .select({ id: questions.id, questionText: questions.questionText })
+            .from(questions)
+            .where(and(...conditions))
+            .limit(limit);
+
+        if (questionsToProcess.length === 0) {
+            return {
+                success: true,
+                message: 'All questions already have audio',
+                queuedCount: 0,
+                questionIds: [],
+                remaining: 0,
+            };
+        }
+
+        // Queue audio generation jobs
+        const queuedIds: string[] = [];
+        for (const q of questionsToProcess) {
+            await this.audioQueue.add(
+                {
+                    questionId: q.id,
+                    questionText: q.questionText,
+                },
+                {
+                    priority: 2,
+                    removeOnComplete: true,
+                },
+            );
+            queuedIds.push(q.id);
+        }
+
+        // Get remaining count
+        const remainingCount = await this.getQuestionsWithoutAudioCount(topicId);
+
+        return {
+            success: true,
+            message: `Queued ${queuedIds.length} questions for audio generation`,
+            queuedCount: queuedIds.length,
+            questionIds: queuedIds,
+            remaining: Math.max(0, remainingCount.count - queuedIds.length),
+        };
+    }
+
+    /**
+     * Get count of questions missing audio
+     */
+    async getQuestionsWithoutAudioCount(topicId?: string) {
+        const conditions = [isNull(questions.audioUrl)];
+
+        if (topicId) {
+            conditions.push(eq(questions.topicId, topicId));
+        }
+
+        const result = await this.db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(questions)
+            .where(and(...conditions));
+
+        return {
+            count: result[0]?.count ?? 0,
+            topicId: topicId || null,
+        };
     }
 }

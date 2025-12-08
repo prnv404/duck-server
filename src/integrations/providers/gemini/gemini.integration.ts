@@ -1,11 +1,12 @@
 import { BaseIntegration } from '../../core/base-integration.interface';
 import { BaseIntegrationConfig } from '../../core/integration-config.interface';
-import { GoogleGenAI } from '@google/genai';
-import { getLanguageConfig, DEFAULT_CONFIG, LanguageConfig } from '../../../modules/question/config/prompt.config';
+import { GoogleGenAI, FileSearchStore } from '@google/genai';
+import { DEFAULT_CONFIG } from '../../../modules/question/config/prompt.config';
 
 export interface GeminiIntegrationConfig extends BaseIntegrationConfig {
     apiKey: string;
     model?: string;
+    fileSearchStoreName?: string; // Store name for RAG
 }
 
 // Interface for the structured output (matches your Drizzle schema)
@@ -40,6 +41,7 @@ export class GeminiIntegration implements BaseIntegration<GeminiIntegrationConfi
     private _config: GeminiIntegrationConfig;
     private _client: GoogleGenAI;
     private _connected = false;
+    private _fileSearchStore: FileSearchStore | null = null;
 
     get config(): GeminiIntegrationConfig {
         return this._config;
@@ -95,28 +97,56 @@ export class GeminiIntegration implements BaseIntegration<GeminiIntegrationConfi
         count: number = DEFAULT_CONFIG.count,
         difficulty: number = DEFAULT_CONFIG.difficulty,
     ): string {
-        return `You are a curriculum expert. Generate ${count} high-quality MCQs.
-Ensure difficulty is around ${difficulty} (scale 1-3).
+        return `
+            You are a competitive exam question setter and curriculum expert.
 
-Generate questions that genuinely help aspirants crack competitive exams.
-Focus on the most important, and mostt confusing areas of the topic.
-Make the questions feel practical, exam-smart, and close to what exam setters ask — not theoretical or academic.
-Include tricky wording, common traps, and subtle distinctions exams love testing.
-Keep explanations short, friendly, and confidence-building, helping the learner understand the logic quickly.
+            Your task is to generate ${count} HIGH-QUALITY, COMPLETELY ORIGINAL MCQs.
+            Target difficulty level: ${difficulty} (scale 1–3).
 
-give the question and answers in ${language}
+            IMPORTANT DEDUPLICATION RULES (STRICT):
+            - You have access to an existing database of questions via file search.
+            - You MUST NOT:
+            - Repeat any existing question.
+            - Paraphrase or slightly modify any existing question.
+            - Reuse the same structure, logic pattern, or option traps from existing questions.
+            - If any generated question is even semantically similar to retrieved content, DISCARD it and generate a new one.
+            - Every question must test the SAME CONCEPT but in a NEW WAY.
 
-For each question:
-- Rephrase the question style so every question sounds slightly different.
-  (e.g., "Which of the following…", "Identify…", "Find the correct statement…",
-  "Below is a question about…", "Choose the right option…", etc.)
-- Ensure **exactly 4 options**.
-- Only **one correct option**.
-- Options should be meaningful, diverse, and not repetitive.
-- The correct option must be clearly accurate according to Indian competitive exam standards.
-- Provide a short, clear explanation for the answer.
-- Return the output strictly in JSON array format.`;
+            EXAM-LEVEL QUALITY RULES:
+            - Questions must feel like real Indian competitive exam questions.
+            - Focus on:
+            - Common traps
+            - Conceptual confusion points
+            - Close options
+            - Examiner psychology
+            - Avoid academic or textbook language.
+            - Make the learner think.
+
+            LANGUAGE:
+            - Output must be strictly in ${language}.
+
+            FORMAT RULES (STRICT, NO EXCEPTIONS):
+            For every question:
+            - Exactly 4 options.
+            - Only ONE correct option.
+            - Options must be meaningful and non-repetitive.
+            - Each question MUST feel stylistically different.
+            - Provide a short, clear, exam-focused explanation.
+            - Assign:
+            - difficulty (1–3)
+            - points (based on difficulty)
+            - Return ONLY a valid JSON ARRAY.
+            - NO markdown.
+            - NO commentary.
+            - NO extra text.
+            - maximum character count for explanation is 450
+
+            FAILURE CONDITIONS (AUTOMATIC REJECTION):
+            - If even ONE question is copied, paraphrased, or structurally cloned → The entire output is invalid.
+            - If output is not valid JSON → The entire output is invalid.
+            `;
     }
+
 
     /**
      * Log request metrics for monitoring and debugging
@@ -149,6 +179,7 @@ For each question:
         difficulty?: number;
         count?: number;
         language?: string;
+        fileSearchStoreName?: string;
     }): Promise<GeneratedQuestionData[]> {
         if (!this._connected) throw new Error('Gemini integration not connected');
 
@@ -188,21 +219,62 @@ For each question:
 
         const systemInstruction = this.buildSystemPrompt(language, count, difficulty);
 
+        // Build config with optional file search
+        const config: any = {
+            maxOutputTokens: 500000,
+            responseMimeType: 'application/json',
+            responseSchema: questionSchema,
+            systemInstruction: systemInstruction,
+        };
+
+        // Only add file search tool if store name is provided
+        const tools = input.fileSearchStoreName
+            ? [
+                {
+                    fileSearch: {
+                        fileSearchStoreNames: [input.fileSearchStoreName],
+                    },
+                },
+            ]
+            : undefined;
+
         try {
             const response = await this._client.models.generateContent({
                 model: modelName,
                 contents: input.prompt,
                 config: {
-                    maxOutputTokens: 500000,
-                    responseMimeType: 'application/json',
-                    responseSchema: questionSchema,
-                    systemInstruction: systemInstruction,
+                    ...config,
+                    ...(tools && { tools }),
                 },
             });
 
             const responseText = response.candidates?.[0]?.content?.parts?.[0]?.text;
-            const parsedData = JSON.parse(responseText!);
-            const questions = parsedData as GeneratedQuestionData[];
+
+            if (!responseText) {
+                throw new Error('No response text from Gemini');
+            }
+
+            // Try to parse JSON, handle potential text wrapping
+            let parsedData: GeneratedQuestionData[];
+            try {
+                parsedData = JSON.parse(responseText);
+            } catch (parseError) {
+                // Try to extract JSON from markdown code blocks
+                const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/) || responseText.match(/```\s*([\s\S]*?)\s*```/);
+                if (jsonMatch) {
+                    parsedData = JSON.parse(jsonMatch[1]);
+                } else {
+                    // Try to find JSON array in the response (handles "Here is the JSON:" prefix)
+                    const arrayMatch = responseText.match(/\[[\s\S]*\]/);
+                    if (arrayMatch) {
+                        parsedData = JSON.parse(arrayMatch[0]);
+                    } else {
+                        throw new Error(`Failed to parse JSON: ${parseError instanceof Error ? parseError.message : String(parseError)}. Response: ${responseText.substring(0, 200)}`);
+                    }
+                }
+            }
+
+            const questions = parsedData;
 
             this.logRequestMetrics({
                 duration: Date.now() - startTime,
@@ -286,14 +358,14 @@ For each question:
         text: string;
         model?: string;
         taskType?:
-            | 'SEMANTIC_SIMILARITY'
-            | 'CLASSIFICATION'
-            | 'CLUSTERING'
-            | 'RETRIEVAL_DOCUMENT'
-            | 'RETRIEVAL_QUERY'
-            | 'CODE_RETRIEVAL_QUERY'
-            | 'QUESTION_ANSWERING'
-            | 'FACT_VERIFICATION';
+        | 'SEMANTIC_SIMILARITY'
+        | 'CLASSIFICATION'
+        | 'CLUSTERING'
+        | 'RETRIEVAL_DOCUMENT'
+        | 'RETRIEVAL_QUERY'
+        | 'CODE_RETRIEVAL_QUERY'
+        | 'QUESTION_ANSWERING'
+        | 'FACT_VERIFICATION';
         outputDimensionality?: number;
     }): Promise<number[]> {
         if (!this._connected) throw new Error('Gemini integration not connected');
@@ -321,5 +393,93 @@ For each question:
             const msg = error instanceof Error ? error.message : String(error);
             throw new Error(`Failed to generate embedding: ${msg}`);
         }
+    }
+
+    // ==================== FILE SEARCH STORE (RAG) METHODS ====================
+
+    /**
+     * Get or create a FileSearchStore for question deduplication
+     */
+    async getOrCreateFileSearchStore(displayName: string): Promise<FileSearchStore> {
+        if (!this._connected) throw new Error('Gemini integration not connected');
+
+        try {
+            const stores = await this._client.fileSearchStores.list();
+
+            for await (const store of stores) {
+                if (store.displayName === displayName) {
+                    this._fileSearchStore = store;
+                    console.log(`[Gemini] Using existing FileSearchStore: ${store.name}`);
+                    return store;
+                }
+            }
+
+            const newStore = await this._client.fileSearchStores.create({
+                config: { displayName },
+            });
+
+            this._fileSearchStore = newStore;
+            console.log(`[Gemini] Created new FileSearchStore: ${newStore.name}`);
+            return newStore;
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to get/create FileSearchStore: ${msg}`);
+        }
+    }
+
+    /**
+     * Upload questions to FileSearchStore for RAG as JSON
+     * JSON format provides better structure for semantic search
+     */
+    async uploadQuestionsToStore(
+        questions: { id: string; questionText: string; explanation?: string; topicName?: string }[],
+        storeName: string,
+    ): Promise<{ success: boolean; uploadedCount: number }> {
+        if (!this._connected) throw new Error('Gemini integration not connected');
+
+        try {
+            // Format as structured JSON for better search
+            const jsonContent = {
+                metadata: {
+                    uploadedAt: new Date().toISOString(),
+                    totalQuestions: questions.length,
+                    description: 'Existing questions database for deduplication',
+                },
+                questions: questions.map((q) => ({
+                    id: q.id,
+                    topic: q.topicName || 'General',
+                    questionText: q.questionText,
+                    explanation: q.explanation || null,
+                })),
+            };
+
+            const fileContent = Buffer.from(JSON.stringify(jsonContent, null, 2), 'utf-8');
+            const fileName = `questions_${Date.now()}.json`;
+
+            let operation = await this._client.fileSearchStores.uploadToFileSearchStore({
+                file: new Blob([fileContent], { type: 'application/json' }),
+                fileSearchStoreName: storeName,
+                config: { displayName: fileName },
+            });
+
+            while (!operation.done) {
+                await new Promise((resolve) => setTimeout(resolve, 2000));
+                operation = await this._client.operations.get({ operation });
+            }
+
+            console.log(`[Gemini] Uploaded ${questions.length} questions as JSON to FileSearchStore`);
+            return { success: true, uploadedCount: questions.length };
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : String(error);
+            throw new Error(`Failed to upload questions to store: ${msg}`);
+        }
+    }
+
+    getFileSearchStore(): FileSearchStore | null {
+        return this._fileSearchStore;
+    }
+
+    getClient(): GoogleGenAI {
+        return this._client;
     }
 }

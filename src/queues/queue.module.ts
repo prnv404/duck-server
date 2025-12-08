@@ -7,6 +7,7 @@ import { QuestionGenerationProcessor } from './processors/question-generation.pr
 import { AudioProcessingProcessor } from './processors/audio-processing.processor';
 import { IntegrationModule } from '@/integrations/integration.module';
 import { DatabaseModule } from '@/database/db.module';
+import { QuestionStoreModule } from '@/modules/question/question-store.module';
 
 export const QUESTION_GENERATION_QUEUE = 'question-generation';
 export const AUDIO_PROCESSING_QUEUE = 'audio-processing';
@@ -16,6 +17,7 @@ export const AUDIO_PROCESSING_QUEUE = 'audio-processing';
         ConfigModule,
         DatabaseModule,
         IntegrationModule,
+        QuestionStoreModule,
         BullModule.forRootAsync({
             inject: [EnvService],
             useFactory: (configService: EnvService) => {
@@ -39,4 +41,4 @@ export const AUDIO_PROCESSING_QUEUE = 'audio-processing';
     providers: [QuestionGenerationProcessor, AudioProcessingProcessor],
     exports: [BullModule],
 })
-export class QueueModule { }
+export class QueueModule {}

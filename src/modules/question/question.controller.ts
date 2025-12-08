@@ -2,13 +2,14 @@ import { Controller, Post, Body, Param, ParseUUIDPipe, Get, Inject, NotFoundExce
 import { InjectQueue } from '@nestjs/bull';
 import type { Queue } from 'bull';
 import { QuestionGenerationService } from './question.gen.service';
-import { GenerateQuestionDto, BatchApproveDto, ListQuestionsDto } from './question.dto';
+import { QuestionStoreService } from './question-store.service';
+import { GenerateQuestionDto, BatchApproveDto, ListQuestionsDto, GenerateAudioDto } from './question.dto';
 import { QUESTION_GENERATION_QUEUE } from '@/queues/queue.module';
 import { JobStatusResponse } from '@/queues/job.types';
-import { topics, questions, subjects, answerOptions } from '@/database/schema';
-import { eq, and, gte, lte, desc, asc, sql, SQL } from 'drizzle-orm';
+import { topics, questions } from '@/database/schema';
+import { eq, and, gte, lte, sql, SQL } from 'drizzle-orm';
 import * as Database from '@/database';
-import { getLanguageConfig, DEFAULT_CONFIG } from './config/prompt.config';
+import { DEFAULT_CONFIG } from './config/prompt.config';
 import { ApiKeyGuard } from '@/common/guards/api-key.guard';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 
@@ -16,9 +17,10 @@ import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 export class QuestionController {
     constructor(
         private readonly questionGenService: QuestionGenerationService,
+        private readonly questionStoreService: QuestionStoreService,
         @InjectQueue(QUESTION_GENERATION_QUEUE) private questionQueue: Queue,
         @Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB,
-    ) { }
+    ) {}
 
     @Post('generate')
     @AllowAnonymous()
@@ -34,11 +36,8 @@ export class QuestionController {
         const language = dto.language || DEFAULT_CONFIG.language;
         const count = dto.count || DEFAULT_CONFIG.count;
 
-        // Get config summaries
-        const languageConfig = getLanguageConfig(language);
-
         // Calculate estimated processing time (approx 3 seconds per question + 2 seconds overhead)
-        const estimatedProcessingTime = count * 3 + 2;
+        const estimatedProcessingTime = count * 1000 + 2;
 
         // Add job to queue instead of processing synchronously
         const job = await this.questionQueue.add(
@@ -49,6 +48,7 @@ export class QuestionController {
                 difficulty: dto.difficulty,
                 count: count,
                 language: language,
+                useRAG: dto.useRAG, // Enable RAG for deduplication
             },
             {
                 priority: 2,
@@ -66,7 +66,6 @@ export class QuestionController {
             },
         };
     }
-
 
     @Get('jobs')
     @AllowAnonymous()
@@ -108,7 +107,6 @@ export class QuestionController {
         };
     }
 
-
     @Get('jobs/:jobId')
     @AllowAnonymous()
     @UseGuards(ApiKeyGuard)
@@ -139,7 +137,7 @@ export class QuestionController {
     @AllowAnonymous()
     @UseGuards(ApiKeyGuard)
     async batchApproveQuestions(@Body() dto: BatchApproveDto) {
-        return this.questionGenService.approveQuestions(dto.queueIds) as any;
+        return this.questionGenService.approveQuestions(dto.queueIds, dto.generateAudio!);
     }
 
     @Post('reject/:id')
@@ -270,5 +268,80 @@ export class QuestionController {
                 hasPrev: page > 1,
             },
         };
+    }
+
+    // ==================== RAG STORE MANAGEMENT ====================
+
+    @Get('store/status')
+    @AllowAnonymous()
+    @UseGuards(ApiKeyGuard)
+    async getStoreStatus() {
+        return {
+            isReady: this.questionStoreService.isReady(),
+            storeName: this.questionStoreService.getStoreName(),
+        };
+    }
+
+    @Post('store/sync')
+    @AllowAnonymous()
+    @UseGuards(ApiKeyGuard)
+    async syncQuestionsToStore() {
+        const result = await this.questionStoreService.syncQuestionsToStore();
+        return {
+            success: result.success,
+            syncedCount: result.syncedCount,
+            message: `Synced ${result.syncedCount} questions to RAG store`,
+        };
+    }
+
+    @Post('store/sync/:topicId')
+    @AllowAnonymous()
+    @UseGuards(ApiKeyGuard)
+    async syncTopicQuestionsToStore(@Param('topicId', ParseUUIDPipe) topicId: string) {
+        const result = await this.questionStoreService.syncTopicQuestions(topicId);
+        return {
+            success: result.success,
+            syncedCount: result.syncedCount,
+            message: `Synced ${result.syncedCount} questions for topic to RAG store`,
+        };
+    }
+
+    // ==================== AUDIO SYNC ====================
+
+    /**
+     * Sync audio for questions - picks questions with null audioUrl and queues them
+     * Similar to store/sync but for audio generation
+     */
+    @Post('audio/sync')
+    @AllowAnonymous()
+    @UseGuards(ApiKeyGuard)
+    async syncAudioForQuestions(@Body() dto: GenerateAudioDto) {
+        return this.questionGenService.syncAudioForQuestions({
+            topicId: dto.topicId,
+            limit: dto.limit || 50,
+        });
+    }
+
+    /**
+     * Sync audio for a specific topic
+     */
+    @Post('audio/sync/:topicId')
+    @AllowAnonymous()
+    @UseGuards(ApiKeyGuard)
+    async syncAudioForTopic(@Param('topicId', ParseUUIDPipe) topicId: string, @Query('limit') limit?: string) {
+        return this.questionGenService.syncAudioForQuestions({
+            topicId,
+            limit: limit ? parseInt(limit, 10) : 50,
+        });
+    }
+
+    /**
+     * Get count of questions missing audio
+     */
+    @Get('audio/missing')
+    @AllowAnonymous()
+    @UseGuards(ApiKeyGuard)
+    async getQuestionsWithoutAudio(@Query('topicId') topicId?: string) {
+        return this.questionGenService.getQuestionsWithoutAudioCount(topicId);
     }
 }

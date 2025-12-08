@@ -5,10 +5,12 @@ export interface GenerateQuestionsJob {
     difficulty?: number;
     count?: number;
     language?: string;
+    useRAG?: boolean; // Enable RAG for question deduplication
 }
 
 export interface ProcessAudioJob {
-    queueId: string;
+    queueId?: string; // Optional - only present when coming from approval flow
+    questionId: string; // The actual question ID in the questions table
     questionText: string;
 }
 

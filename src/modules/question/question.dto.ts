@@ -1,4 +1,16 @@
-import { IsString, IsOptional, IsNumber, Min, Max, IsUUID, IsArray, IsEnum, MinLength, IsBoolean, IsDateString } from 'class-validator';
+import {
+    IsString,
+    IsOptional,
+    IsNumber,
+    Min,
+    Max,
+    IsUUID,
+    IsArray,
+    IsEnum,
+    MinLength,
+    IsBoolean,
+    IsDateString,
+} from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { Language } from './config/prompt.config';
 
@@ -92,9 +104,32 @@ export class GenerateQuestionDto {
     @IsOptional()
     @IsEnum(Language, { message: 'Language must be one of: ml, en, hi' })
     language?: Language;
+
+    @IsOptional()
+    @IsBoolean()
+    @Transform(({ value }) => value === 'true' || value === true)
+    useRAG?: boolean; // Enable RAG for question deduplication (default: true if store is ready)
 }
 
 export class BatchApproveDto {
     @IsArray()
     queueIds: string[];
+
+    @IsOptional()
+    @IsBoolean()
+    @Transform(({ value }) => value === 'true' || value === true)
+    generateAudio?: boolean; // If true, queue audio generation for approved questions (default: true)
+}
+
+export class GenerateAudioDto {
+    @IsOptional()
+    @IsUUID()
+    topicId?: string; // Sync audio for specific topic (optional)
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsNumber()
+    @Min(1)
+    @Max(200)
+    limit?: number; // Limit number of questions to queue (default: 50)
 }

@@ -26,16 +26,18 @@ export class AudioProcessingProcessor {
         concurrency: 1,
     })
     async handleAudioProcessing(job: Job<ProcessAudioJob>) {
-        this.logger.log(`Processing audio for queue item ${job.data.queueId}`);
+        const { queueId, questionId, questionText } = job.data;
 
-        const { queueId, questionText } = job.data;
+        this.logger.log(`Processing audio for question ${questionId}${queueId ? ` (queue: ${queueId})` : ''}`);
 
         try {
-            // Update status to processing
-            await this.db
-                .update(questionQueueSchema)
-                .set({ status: 'processing_audio' })
-                .where(eq(questionQueueSchema.id, queueId));
+            // Update queue status if coming from approval flow
+            if (queueId) {
+                await this.db
+                    .update(questionQueueSchema)
+                    .set({ status: 'processing_audio' })
+                    .where(eq(questionQueueSchema.id, queueId));
+            }
 
             // Get integrations
             const gemini = this.registry.get<GeminiIntegration>('gemini');
@@ -45,40 +47,40 @@ export class AudioProcessingProcessor {
                 throw new Error('Required integrations not available');
             }
 
-            // Generate and upload audio
-            const audioUrl = await this.processAndUploadAudio(gemini, storage, queueId, questionText);
+            // Generate and upload audio using questionId as the file identifier
+            const audioUrl = await this.processAndUploadAudio(gemini, storage, questionId, questionText);
 
-            // Update queue item with audio URL and completed status
-            await this.db
-                .update(questionQueueSchema)
-                .set({
-                    status: 'completed',
-                    errorMessage: null,
-                })
-                .where(eq(questionQueueSchema.id, queueId));
+            // Update the question with audio URL
+            await this.db.update(questions).set({ audioUrl }).where(eq(questions.id, questionId));
 
-            // Fetch queue item to get questionId
-            const [queueItem] = await this.db.select().from(questionQueueSchema).where(eq(questionQueueSchema.id, queueId));
-
-            if (queueItem && queueItem.questionId) {
-                await this.db.update(questions).set({ audioUrl }).where(eq(questions.id, queueItem.questionId));
+            // Update queue item status if coming from approval flow
+            if (queueId) {
+                await this.db
+                    .update(questionQueueSchema)
+                    .set({
+                        status: 'completed',
+                        errorMessage: null,
+                    })
+                    .where(eq(questionQueueSchema.id, queueId));
             }
 
-            this.logger.log(`Audio processing completed for ${queueId}`);
+            this.logger.log(`Audio processing completed for question ${questionId}`);
 
-            return { success: true, queueId, audioUrl };
+            return { success: true, questionId, queueId, audioUrl };
         } catch (error) {
             this.logger.error(`Audio processing failed: ${error.message}`, error.stack);
 
-            // Update with error
-            await this.db
-                .update(questionQueueSchema)
-                .set({
-                    status: 'failed',
-                    errorMessage: error.message,
-                    attemptCount: job.attemptsMade,
-                })
-                .where(eq(questionQueueSchema.id, queueId));
+            // Update queue with error if coming from approval flow
+            if (queueId) {
+                await this.db
+                    .update(questionQueueSchema)
+                    .set({
+                        status: 'failed',
+                        errorMessage: error.message,
+                        attemptCount: job.attemptsMade,
+                    })
+                    .where(eq(questionQueueSchema.id, queueId));
+            }
 
             throw error;
         }

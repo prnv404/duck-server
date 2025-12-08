@@ -1,14 +1,13 @@
 import { Process, Processor } from '@nestjs/bull';
 import type { Job } from 'bull';
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bull';
-import type { Queue } from 'bull';
 import { Inject } from '@nestjs/common';
 import * as Database from '@/database';
-import { questionQueue as questionQueueSchema, topics } from '@/database/schema';
+import { questionQueue as questionQueueSchema } from '@/database/schema';
 import { GeminiIntegration, IntegrationRegistry } from '@/integrations';
 import { GenerateQuestionsJob } from '../job.types';
 import { eq } from 'drizzle-orm';
+import { QuestionStoreService } from '@/modules/question/question-store.service';
 
 @Processor('question-generation')
 @Injectable()
@@ -18,7 +17,8 @@ export class QuestionGenerationProcessor {
     constructor(
         private registry: IntegrationRegistry,
         @Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB,
-    ) {}
+        private questionStoreService: QuestionStoreService,
+    ) { }
 
     @Process({
         concurrency: 1,
@@ -26,7 +26,7 @@ export class QuestionGenerationProcessor {
     async handleQuestionGeneration(job: Job<GenerateQuestionsJob>) {
         this.logger.log(`Processing question generation job ${job.id}`);
 
-        const { prompt, topicId, model, difficulty, count, language } = job.data;
+        const { prompt, topicId, model, difficulty, count, language, useRAG } = job.data;
 
         try {
             // Get Gemini integration
@@ -35,49 +35,76 @@ export class QuestionGenerationProcessor {
                 throw new Error('Gemini integration not available');
             }
 
-            // Generate questions with language (Requirements: 3.1, 3.2, 3.3)
+            // Use RAG if enabled and store is ready
+            const storeName = this.questionStoreService.getStoreName();
+            console.log(
+                'file name', storeName
+            )
+            const useFileSearch = useRAG && storeName && this.questionStoreService.isReady();
+
+            if (useRAG && !useFileSearch) {
+                this.logger.warn('RAG requested but store not ready, generating without deduplication');
+            }
+
             const generatedQuestions = await gemini.generateQuestions({
                 prompt,
                 model,
                 difficulty,
                 count,
                 language,
+                fileSearchStoreName: useFileSearch ? storeName : undefined,
             });
 
             this.logger.log(`Generated ${generatedQuestions.length} questions`);
 
-            // Store in queue and trigger audio processing
+            if (!generatedQuestions || generatedQuestions.length === 0) {
+                this.logger.warn('No questions were generated');
+                return {
+                    success: false,
+                    count: 0,
+                    queueIds: [],
+                    message: 'No questions generated',
+                };
+            }
+
+            // Store in queue
             const queueIds: string[] = [];
+
+            const uploadQuestions: any[] = []
 
             for (let i = 0; i < generatedQuestions.length; i++) {
                 const question = generatedQuestions[i];
+                uploadQuestions.push(question)
+                try {
+                    // Insert into question queue
+                    const [queueItem] = await this.db
+                        .insert(questionQueueSchema)
+                        .values({
+                            question: question,
+                            answer_option: question.options,
+                            is_approved: false,
+                            is_rejected: false,
+                            topicId: topicId,
+                            jobId: job.id.toString(),
+                            status: 'pending', // Waiting for approval
+                            attemptCount: 0,
+                        })
+                        .returning();
 
-                // Insert into question queue
-                const [queueItem] = await this.db
-                    .insert(questionQueueSchema)
-                    .values({
-                        question: question,
-                        answer_option: question.options,
-                        is_approved: false,
-                        is_rejected: false,
-                        topicId: topicId,
-                        jobId: job.id.toString(),
-                        status: 'pending', // Waiting for approval
-                        attemptCount: 0,
-                    })
-                    .returning();
+                    queueIds.push(queueItem.id);
+                    this.logger.debug(`Inserted question ${i + 1}/${generatedQuestions.length} with ID: ${queueItem.id}`);
 
-                queueIds.push(queueItem.id);
 
-                // Update progress
-                await job.progress(((i + 1) / generatedQuestions.length) * 100);
-
-                // Update progress
-                await job.progress(((i + 1) / generatedQuestions.length) * 100);
+                    // Update progress
+                    await job.progress(((i + 1) / generatedQuestions.length) * 100);
+                } catch (insertError) {
+                    this.logger.error(`Failed to insert question ${i + 1}: ${insertError.message}`, insertError.stack);
+                    throw insertError;
+                }
             }
 
-            this.logger.log(`Queued ${queueIds.length} questions for audio processing`);
-
+            this.logger.log(`Successfully queued ${queueIds.length} questions`);
+            await this.questionStoreService.uploadQuestions(uploadQuestions)
             return {
                 success: true,
                 count: queueIds.length,
