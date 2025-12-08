@@ -23,8 +23,8 @@ import { auth } from './config/auth/auth';
         DatabaseModule,
         ThrottlerModule.forRoot([
             {
-                ttl: 60000, // 60 seconds
-                limit: 100, // 100 requests per minute (global default)
+                ttl: 6000, // 60 seconds
+                limit: 50, // 100 requests per minute (global default)
             },
         ]),
         AuthModule.forRoot({ auth }),

@@ -95,7 +95,6 @@ export class GeminiIntegration implements BaseIntegration<GeminiIntegrationConfi
         count: number = DEFAULT_CONFIG.count,
         difficulty: number = DEFAULT_CONFIG.difficulty,
     ): string {
-
         return `You are a curriculum expert. Generate ${count} high-quality MCQs.
 Ensure difficulty is around ${difficulty} (scale 1-3).
 

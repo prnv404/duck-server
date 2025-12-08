@@ -55,7 +55,7 @@ export const DEFAULT_CONFIG = {
  * @returns LanguageConfig or default English config
  */
 export function getLanguageConfig(languageCode: string): LanguageConfig {
-    return LANGUAGE_CONFIGS[languageCode]
+    return LANGUAGE_CONFIGS[languageCode];
 }
 
 /**

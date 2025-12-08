@@ -3,23 +3,24 @@ import { Logger } from '@nestjs/common';
 
 const logger = new Logger('RedisAdapter');
 
-export function createIORedisFromUpstash(input: { host: string; port: number; password: string }): Redis {
-    logger.log(`Attempting to connect to Redis at ${input.host}:${input.port}`);
+export function createIORedis(url: string): Redis {
+    logger.log(`Attempting to connect to Redis...`);
 
-    const redisConnection = new Redis({
-        host: input.host,
-        port: input.port,
-        password: input.password,
-        tls: {
-            rejectUnauthorized: true,
+    const redisConnection = new Redis(url, {
+        enableReadyCheck: false, // Required for Bull
+        maxRetriesPerRequest: null, // Required for Bull - must be null for blocking commands
+        retryStrategy: (times) => {
+            if (times > 10) {
+                logger.error('Max Redis reconnection attempts reached');
+                return null;
+            }
+            return Math.min(times * 100, 3000);
         },
-        enableReadyCheck: false,
-        maxRetriesPerRequest: null,
     });
 
     // Connection event handlers
     redisConnection.on('connect', () => {
-        logger.log(`✅ Redis connection established to ${input.host}:${input.port}`);
+        logger.log(`✅ Redis connection established`);
     });
 
     redisConnection.on('ready', () => {

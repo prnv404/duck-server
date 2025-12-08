@@ -31,7 +31,7 @@ export class QuestionGenerationService {
         private registry: IntegrationRegistry,
         @Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB,
         @InjectQueue('audio-processing') private audioQueue: Queue,
-    ) { }
+    ) {}
 
     /**
      * Validates question structure before approval.

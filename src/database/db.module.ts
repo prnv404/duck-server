@@ -35,14 +35,14 @@ export type DrizzleDB = NodePgDatabase<typeof schema>;
                 });
 
                 return drizzle(pool, {
-                    schema
+                    schema,
                     // cache: upstashCache({
                     //     url: configService.get('UPSTASH_REDIS_REST_URL')!,
                     //     token: configService.get('UPSTASH_REDIS_REST_TOKEN')!,
                     // }),
                 });
             },
-        }
+        },
     ],
     exports: [DRIZZLE],
 })
