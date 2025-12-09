@@ -28,7 +28,7 @@ export interface StreakCalendarData {
 export class GamificationService {
     private readonly logger = new Logger(GamificationService.name);
 
-    constructor(@Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB) {}
+    constructor(@Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB) { }
 
     // ──────────────────────────────────────────────────────────────────────
     // Orchestrator
@@ -185,27 +185,29 @@ export class GamificationService {
     }
 
     public async maintainStreak(tx: DrizzleTransaction, userId: string, dateArg: Date, session: PracticeSession) {
+        // Use UTC to avoid timezone issues - normalize to start of day in UTC
         const today = new Date(dateArg);
-        today.setHours(0, 0, 0, 0);
+        const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0));
 
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowUTC = new Date(todayUTC);
+        tomorrowUTC.setUTCDate(tomorrowUTC.getUTCDate() + 1);
+
         const existing = await tx.query.streakCalendar.findFirst({
             where: and(
                 eq(streakCalendar.userId, userId),
-                gte(streakCalendar.activityDate, today),
-                lt(streakCalendar.activityDate, tomorrow),
+                gte(streakCalendar.activityDate, todayUTC),
+                lt(streakCalendar.activityDate, tomorrowUTC),
             ),
         });
         if (existing) return;
 
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayUTC = new Date(todayUTC);
+        yesterdayUTC.setUTCDate(yesterdayUTC.getUTCDate() - 1);
         const yesterdayEntry = await tx.query.streakCalendar.findFirst({
             where: and(
                 eq(streakCalendar.userId, userId),
-                gte(streakCalendar.activityDate, yesterday),
-                lt(streakCalendar.activityDate, today),
+                gte(streakCalendar.activityDate, yesterdayUTC),
+                lt(streakCalendar.activityDate, todayUTC),
             ),
         });
 
@@ -216,7 +218,7 @@ export class GamificationService {
 
         await tx.insert(streakCalendar).values({
             userId,
-            activityDate: today,
+            activityDate: todayUTC,
             quizzesCompleted: 1,
             questionsAnswered: session.questionsAttempted,
             xpEarned: session.xpEarned || 0,
@@ -227,7 +229,7 @@ export class GamificationService {
             .set({
                 currentStreak: newStreak,
                 longestStreak: Math.max(stats.longestStreak, newStreak),
-                lastActivityDate: today,
+                lastActivityDate: todayUTC,
             })
             .where(eq(userStats.userId, userId));
     }
