@@ -41,7 +41,7 @@ export class QuizSessionService {
         private readonly db: Database.DrizzleDB,
         private readonly questionGen: QuestionService,
         private readonly gamificationService: GamificationService,
-    ) {}
+    ) { }
 
     async getPracticeSession(sessionId: string): Promise<PracticeSession> {
         const [sessionResult] = await this.db.select().from(practiceSessions).where(eq(practiceSessions.id, sessionId)).limit(1);
@@ -200,58 +200,83 @@ export class QuizSessionService {
                 .where(eq(practiceSessions.id, sessionId));
 
             // 2. Process Gamification (XP, Level, Streaks, Badges)
-            // We cast to PracticeSession to ensure type compatibility
             await this.gamificationService.processSessionGamification(session.userId, completedSession as PracticeSession, tx);
 
-            // 3. Update user question history
+            // 3. OPTIMIZED: Batch fetch all question topicIds at once (eliminates N+1 query)
+            const questionIds = answers.map(ans => ans.questionId);
+            const questionsData = await tx
+                .select({ id: questions.id, topicId: questions.topicId })
+                .from(questions)
+                .where(inArray(questions.id, questionIds));
+
+            const questionTopicMap = new Map(questionsData.map(q => [q.id, q.topicId]));
+
+            // 4. OPTIMIZED: Batch fetch all current topic progress at once
+            const topicIds = [...new Set(questionsData.map(q => q.topicId).filter(Boolean))] as string[];
+            const currentTopicProgress = topicIds.length > 0
+                ? await tx
+                    .select()
+                    .from(userTopicProgress)
+                    .where(and(
+                        eq(userTopicProgress.userId, session.userId),
+                        inArray(userTopicProgress.topicId, topicIds)
+                    ))
+                : [];
+
+            const topicProgressMap = new Map(currentTopicProgress.map(tp => [tp.topicId, tp]));
+
+            // 5. OPTIMIZED: Aggregate topic updates by topicId
+            const topicUpdates = new Map<string, { correct: number; total: number }>();
             for (const ans of answers) {
-                await tx
-                    .insert(userQuestionHistory)
-                    .values({
-                        userId: session.userId,
-                        questionId: ans.questionId,
-                        timesSeen: 1,
-                        timesCorrect: ans.isCorrect ? 1 : 0,
-                        lastSeenAt: today,
-                    })
-                    .onConflictDoUpdate({
-                        target: [userQuestionHistory.userId, userQuestionHistory.questionId],
-                        set: {
-                            timesSeen: sql`${userQuestionHistory.timesSeen} + 1`,
-                            timesCorrect: sql`${userQuestionHistory.timesCorrect} + ${ans.isCorrect ? 1 : 0}`,
-                            lastSeenAt: today,
-                        },
+                const topicId = questionTopicMap.get(ans.questionId);
+                if (topicId) {
+                    const current = topicUpdates.get(topicId) || { correct: 0, total: 0 };
+                    topicUpdates.set(topicId, {
+                        correct: current.correct + (ans.isCorrect ? 1 : 0),
+                        total: current.total + 1
                     });
+                }
             }
 
-            // 4. Update user topic progress
-            for (const ans of answers) {
-                const [q] = await tx
-                    .select({ topicId: questions.topicId })
-                    .from(questions)
-                    .where(eq(questions.id, ans.questionId))
-                    .limit(1);
+            // 6. OPTIMIZED: Batch insert/update user question history using Promise.all
+            await Promise.all(
+                answers.map(ans =>
+                    tx
+                        .insert(userQuestionHistory)
+                        .values({
+                            userId: session.userId,
+                            questionId: ans.questionId,
+                            timesSeen: 1,
+                            timesCorrect: ans.isCorrect ? 1 : 0,
+                            lastSeenAt: today,
+                        })
+                        .onConflictDoUpdate({
+                            target: [userQuestionHistory.userId, userQuestionHistory.questionId],
+                            set: {
+                                timesSeen: sql`${userQuestionHistory.timesSeen} + 1`,
+                                timesCorrect: sql`${userQuestionHistory.timesCorrect} + ${ans.isCorrect ? 1 : 0}`,
+                                lastSeenAt: today,
+                            },
+                        })
+                )
+            );
 
-                if (q?.topicId) {
-                    // Fetch current topic progress
-                    const [currentProgress] = await tx
-                        .select()
-                        .from(userTopicProgress)
-                        .where(and(eq(userTopicProgress.userId, session.userId), eq(userTopicProgress.topicId, q.topicId)))
-                        .limit(1);
-
-                    const newTopicCorrect = (currentProgress?.correctAnswers || 0) + (ans.isCorrect ? 1 : 0);
-                    const newTopicAttempted = (currentProgress?.questionsAttempted || 0) + 1;
+            // 7. OPTIMIZED: Batch update topic progress using Promise.all
+            await Promise.all(
+                Array.from(topicUpdates.entries()).map(([topicId, updates]) => {
+                    const currentProgress = topicProgressMap.get(topicId);
+                    const newTopicCorrect = (currentProgress?.correctAnswers || 0) + updates.correct;
+                    const newTopicAttempted = (currentProgress?.questionsAttempted || 0) + updates.total;
                     const newTopicAccuracy = ((newTopicCorrect / newTopicAttempted) * 100).toFixed(2);
 
-                    await tx
+                    return tx
                         .insert(userTopicProgress)
                         .values({
                             userId: session.userId,
-                            topicId: q.topicId,
-                            questionsAttempted: 1,
-                            correctAnswers: ans.isCorrect ? 1 : 0,
-                            accuracy: ans.isCorrect ? '100.00' : '0.00',
+                            topicId,
+                            questionsAttempted: updates.total,
+                            correctAnswers: updates.correct,
+                            accuracy: updates.total > 0 ? ((updates.correct / updates.total) * 100).toFixed(2) : '0.00',
                             lastPracticedAt: today,
                         })
                         .onConflictDoUpdate({
@@ -263,8 +288,8 @@ export class QuizSessionService {
                                 lastPracticedAt: today,
                             },
                         });
-                }
-            }
+                })
+            );
         });
 
         const [updated] = await this.db.select().from(practiceSessions).where(eq(practiceSessions.id, sessionId));
