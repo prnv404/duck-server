@@ -103,8 +103,7 @@ export class CurriculumController {
     @HttpCode(HttpStatus.OK)
     async getMySubjectAccuracy(@Session() session: UserSession): Promise<SubjectAccuracyResponseDto[]> {
         const accuracy = await this.curriculumService.getSubjectWiseAccuracy(session.user.id);
-        return [...accuracy]
-            .sort(() => Math.random() - 0.5)
+        return accuracy
             .map((item) => ({
                 subjectId: item.subjectId,
                 subjectName: item.subjectName,
