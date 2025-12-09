@@ -34,7 +34,7 @@ export interface UserTopicProgressWithId {
 
 @Injectable()
 export class QuestionService {
-    constructor(@Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB) {}
+    constructor(@Inject(Database.DRIZZLE) private readonly db: Database.DrizzleDB) { }
 
     async generateQuestions(dto: CreateSessionInput & { count: number }): Promise<QuestionWithAnswers[]> {
         const { userId, count = 15, type, subjectIds } = dto;
@@ -193,13 +193,18 @@ export class QuestionService {
             ...baseConditions,
             eq(topics.is_active_in_random, true),
             eq(subjects.is_active_in_random, true),
-            notInArray(subjects.id, excludedSubjectIds),
         ];
-        if (topicIds?.length) {
-            whereClauses.push(inArray(questions.topicId, topicIds));
-        }
+
+        // If subjectIds are provided, ONLY include those subjects (don't apply exclusions)
         if (subjectIds?.length) {
             whereClauses.push(inArray(subjects.id, subjectIds));
+        } else {
+            // Only apply exclusions when no specific subjects are requested
+            whereClauses.push(notInArray(subjects.id, excludedSubjectIds));
+        }
+
+        if (topicIds?.length) {
+            whereClauses.push(inArray(questions.topicId, topicIds));
         }
         if (minDifficulty) {
             whereClauses.push(gte(questions.difficulty, minDifficulty));
@@ -385,7 +390,7 @@ export class QuestionService {
             prefs.excludedSubjectIds.length > 0 ? prefs.excludedSubjectIds : ['00000000-0000-0000-0000-000000000000'];
 
         const candidates = await this.fetchCandidateQuestionsWithMetadata(userId, baseConditions, excluded, {
-            minDifficulty: 4,
+            minDifficulty: 3,
             limit: count * 5,
         });
 

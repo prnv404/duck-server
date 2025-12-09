@@ -196,10 +196,6 @@ export class QuestionGenerationService {
                 // Queue Audio Job only if generateAudio is true
                 if (generateAudio !== false && newQuestion) {
 
-                    console.log(
-                        'landflaslfas;fja;sdfasf;asf;ashf;asdhf'
-                    )
-
                     await this.audioQueue.add(
                         {
                             queueId,
